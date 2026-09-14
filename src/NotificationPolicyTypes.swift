@@ -7,12 +7,20 @@ struct ScreenDescriptor: Equatable {
     let visibleFrame: CGRect
     let isMain: Bool
     let isBuiltIn: Bool
+    let backingScaleFactor: CGFloat
 
-    init(frame: CGRect, visibleFrame: CGRect, isMain: Bool, isBuiltIn: Bool = false) {
+    init(
+        frame: CGRect,
+        visibleFrame: CGRect,
+        isMain: Bool,
+        isBuiltIn: Bool = false,
+        backingScaleFactor: CGFloat
+    ) {
         self.frame = frame
         self.visibleFrame = visibleFrame
         self.isMain = isMain
         self.isBuiltIn = isBuiltIn
+        self.backingScaleFactor = backingScaleFactor
     }
 }
 

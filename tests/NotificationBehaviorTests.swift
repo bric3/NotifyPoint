@@ -29,21 +29,24 @@ private let externalMainScreen = ScreenDescriptor(
     frame: CGRect(x: 0, y: 0, width: 3360, height: 1890),
     visibleFrame: CGRect(x: 0, y: 0, width: 3360, height: 1859),
     isMain: true,
-    isBuiltIn: false
+    isBuiltIn: false,
+    backingScaleFactor: 1
 )
 
 private let laptopSecondaryScreen = ScreenDescriptor(
     frame: CGRect(x: 822, y: 1890, width: 1800, height: 1169),
     visibleFrame: CGRect(x: 822, y: 1930, width: 1800, height: 1129),
     isMain: false,
-    isBuiltIn: true
+    isBuiltIn: true,
+    backingScaleFactor: 2
 )
 
 private let singleLaptopMainScreen = ScreenDescriptor(
     frame: CGRect(x: 0, y: 0, width: 1800, height: 1169),
     visibleFrame: CGRect(x: 0, y: 0, width: 1800, height: 1129),
     isMain: true,
-    isBuiltIn: true
+    isBuiltIn: true,
+    backingScaleFactor: 2
 )
 
 private let dualScreenLayout = [externalMainScreen, laptopSecondaryScreen]
@@ -1454,6 +1457,8 @@ private func testPlacementEngineUsesBuiltInDisplayAsReferenceWhenRequested() thr
     }
 
     try assertEqual(plan.referenceScreen?.frame, laptopSecondaryScreen.frame, "reference screen should switch to built-in display")
+    try assertEqual(plan.resolvedScreen?.backingScaleFactor, externalMainScreen.backingScaleFactor, "source screen backing scale")
+    try assertEqual(plan.referenceScreen?.backingScaleFactor, laptopSecondaryScreen.backingScaleFactor, "target screen backing scale")
     try assertEqual(plan.targetPosition.x, -1450, "built-in target x should land on the laptop display")
     try assertEqual(plan.targetPosition.y, 2398, "built-in target y should include the laptop display origin")
     try assertEqual(plan.targetBannerPosition.x, 1550, "built-in banner x should be horizontally centered on the laptop display")
@@ -1604,8 +1609,8 @@ private func testPlacementEngineResetsCachedGeometryWhenResolvedScreenChanges() 
         currentPosition: .deadCenter,
         displayTarget: .mainDisplay,
         screens: [
-            ScreenDescriptor(frame: CGRect(x: 0, y: 0, width: 3360, height: 1890), visibleFrame: CGRect(x: 0, y: 31, width: 3360, height: 1859), isMain: true, isBuiltIn: false),
-            ScreenDescriptor(frame: CGRect(x: 776, y: 1890, width: 1800, height: 1169), visibleFrame: CGRect(x: 776, y: 1930, width: 1800, height: 1129), isMain: false, isBuiltIn: true),
+            ScreenDescriptor(frame: CGRect(x: 0, y: 0, width: 3360, height: 1890), visibleFrame: CGRect(x: 0, y: 31, width: 3360, height: 1859), isMain: true, isBuiltIn: false, backingScaleFactor: 1),
+            ScreenDescriptor(frame: CGRect(x: 776, y: 1890, width: 1800, height: 1169), visibleFrame: CGRect(x: 776, y: 1930, width: 1800, height: 1129), isMain: false, isBuiltIn: true, backingScaleFactor: 2),
         ]
     )
 
@@ -1916,7 +1921,8 @@ private func testDockSizeUsesVisibleFrameDifference() throws {
     let screen = ScreenDescriptor(
         frame: CGRect(x: 0, y: 0, width: 1920, height: 1080),
         visibleFrame: CGRect(x: 0, y: 0, width: 1920, height: 1040),
-        isMain: true
+        isMain: true,
+        backingScaleFactor: 1
     )
 
     try assertEqual(ScreenResolutionPolicy.dockSize(for: screen), 40, "dock size")

@@ -573,6 +573,9 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
                 debugLog("Window identifier changed (\(previousIdentifier) → \(currentIdentifier)). Resetting cached geometry.")
             }
 
+            let rootFrameBeforeMove = windowPosition.map {
+                CGRect(origin: $0, size: resolvedWindowSize)
+            }
             debugLog(
                 "Window candidate: " +
                     "requestedTarget=\(requestedDisplayTarget.displayName), " +
@@ -581,6 +584,9 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
                     "banner=\(elementFingerprint(resolvedBannerContainer, identifier: bannerIdentifier, focused: bannerFocused, size: resolvedNotifSize, position: resolvedPosition)), " +
                     "resolvedScreen=\(screenSummary(from: plan.resolvedScreen)), " +
                     "referenceScreen=\(screenSummary(from: plan.referenceScreen)), " +
+                    "sourceBackingScale=\(optionalScaleSummary(plan.resolvedScreen?.backingScaleFactor)), " +
+                    "targetBackingScale=\(optionalScaleSummary(plan.referenceScreen?.backingScaleFactor)), " +
+                    "rootFrameBefore=\(optionalRectSummary(rootFrameBeforeMove)), " +
                     "targetPosition=\(pointSummary(plan.targetPosition)), " +
                     "targetBannerPosition=\(pointSummary(plan.targetBannerPosition))"
             )
@@ -650,10 +656,15 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             let bannerWithinReferenceScreen = plan.referenceScreen.map {
                 $0.frame.contains(postMoveBannerPosition ?? .zero)
             } ?? false
+            let rootFrameAfterMove = postMoveRootPosition.map {
+                CGRect(origin: $0, size: resolvedWindowSize)
+            }
             controller.noteNotificationMoved()
             debugLog(
                 "Post-move verification: " +
                     "movedElement=\(movedElementSummary), " +
+                    "rootFrameBefore=\(optionalRectSummary(rootFrameBeforeMove)), " +
+                    "rootFrameAfter=\(optionalRectSummary(rootFrameAfterMove)), " +
                     "rootPos=\(optionalPointSummary(postMoveRootPosition)), " +
                     "bannerPos=\(optionalPointSummary(postMoveBannerPosition)), " +
                     "bannerWithinReferenceScreen=\(bannerWithinReferenceScreen)"
@@ -951,7 +962,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
                     screenDisplayID: screenDisplayID,
                     mainDisplayID: mainDisplayID
                 ),
-                isBuiltIn: isBuiltInScreen(screen)
+                isBuiltIn: isBuiltInScreen(screen),
+                backingScaleFactor: screen.backingScaleFactor
             )
         }
     }
@@ -1124,7 +1136,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         guard let descriptor else { return "n/a" }
         let frame = rectSummary(descriptor.frame)
         let visible = rectSummary(descriptor.visibleFrame)
-        return "{main=\(descriptor.isMain),builtIn=\(descriptor.isBuiltIn),frame=\(frame),visible=\(visible)}"
+        let backingScale = scaleSummary(descriptor.backingScaleFactor)
+        return "{main=\(descriptor.isMain),builtIn=\(descriptor.isBuiltIn),backingScale=\(backingScale),frame=\(frame),visible=\(visible)}"
     }
 
     private func screenSummary(from screen: NSScreen?) -> String {
@@ -1134,7 +1147,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         let visible = rectSummary(screen.visibleFrame)
         let isMain = screen == NSScreen.main
         let isBuiltIn = isBuiltInScreen(screen)
-        return "{id=\(id),main=\(isMain),builtIn=\(isBuiltIn),frame=\(frame),visible=\(visible)}"
+        let backingScale = scaleSummary(screen.backingScaleFactor)
+        return "{id=\(id),main=\(isMain),builtIn=\(isBuiltIn),backingScale=\(backingScale),frame=\(frame),visible=\(visible)}"
     }
 
     private func sizeSummary(_ size: CGSize) -> String {
@@ -1149,6 +1163,18 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         point.map(pointSummary) ?? "n/a"
     }
 
+    private func optionalRectSummary(_ rect: CGRect?) -> String {
+        rect.map(rectSummary) ?? "n/a"
+    }
+
+    private func optionalScaleSummary(_ scale: CGFloat?) -> String {
+        scale.map(scaleSummary) ?? "n/a"
+    }
+
+    private func scaleSummary(_ scale: CGFloat) -> String {
+        String(format: "%.1f", scale)
+    }
+
     func screenTopologySummary() -> String {
         let screensSummary = NSScreen.screens.enumerated().map { index, screen in
             let id = screenIdentifier(screen) ?? "unknown"
@@ -1156,7 +1182,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             let visibleFrame = rectSummary(screen.visibleFrame)
             let isMain = screen == NSScreen.main
             let isBuiltIn = isBuiltInScreen(screen)
-            return "#\(index){id=\(id),main=\(isMain),builtIn=\(isBuiltIn),frame=\(frame),visible=\(visibleFrame)}"
+            let backingScale = scaleSummary(screen.backingScaleFactor)
+            return "#\(index){id=\(id),main=\(isMain),builtIn=\(isBuiltIn),backingScale=\(backingScale),frame=\(frame),visible=\(visibleFrame)}"
         }.joined(separator: " ")
         return "screens=[\(screensSummary)]"
     }
