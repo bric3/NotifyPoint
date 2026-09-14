@@ -51,9 +51,8 @@
     </filter>
   </defs>
 
-  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#background)"/>
-  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#backgroundGlow)"/>
-  <rect x="30" y="30" width="452" height="452" rx="102" fill="none" stroke="#77c9ff" stroke-opacity="0.34" stroke-width="3"/>
+  <rect width="512" height="512" fill="url(#background)"/>
+  <rect width="512" height="512" fill="url(#backgroundGlow)"/>
 
   <g filter="url(#shadow)">
     <path d="M105 232 Q96 232 94 243 L73 393 Q71 408 87 408 H425 Q441 408 439 393 L418 243 Q416 232 407 232 Z" fill="url(#screen)" stroke="#b9ddff" stroke-width="3"/>

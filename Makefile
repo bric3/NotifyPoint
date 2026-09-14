@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
-.PHONY: all build debug-build generate-build-info generate-icons run test smoke-test smoke-test-check license-check license-fix check-build-deps check-smoke-test-deps clean publish save-codesign-identity clear-codesign-identity
+.PHONY: all build debug-build generate-build-info generate-icons install run test smoke-test smoke-test-check license-check license-fix check-build-deps check-smoke-test-deps clean publish save-codesign-identity clear-codesign-identity
 
 all: build
 
 CODESIGN_IDENTITY_FILE ?= .codesign_identity
 BUILD_INFO_SWIFT ?= .build/BuildInfo.generated.swift
 LICENSEOPS ?= lops
+RSVG_CONVERT ?= rsvg-convert
 BUILD_DEPENDENCIES = bash swiftc lipo codesign git shasum awk find date
 SMOKE_TEST_DEPENDENCIES = bash open alerter grep awk ps kill tail wc head make
 APP_SWIFT_SOURCES = $(sort $(wildcard src/*.swift)) $(BUILD_INFO_SWIFT)
@@ -102,7 +103,14 @@ generate-build-info:
 		'}' > "$(BUILD_INFO_SWIFT)"
 
 generate-icons:
+	$(RSVG_CONVERT) --width=1024 --height=1024 --output=src/assets/icon.png src/assets/icon.svg
 	jbang scripts/icons/GenerateIcons.java
+
+install: build
+	@killall NotifyPoint 2>/dev/null || true
+	@mkdir -p "$(HOME)/Applications"
+	@ditto NotifyPoint.app "$(HOME)/Applications/NotifyPoint.app"
+	@open "$(HOME)/Applications/NotifyPoint.app"
 
 run:
 	@open NotifyPoint.app
