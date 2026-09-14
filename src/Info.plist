@@ -8,9 +8,9 @@
     <key>CFBundleIdentifier</key>
     <string>io.github.bric3.notifypoint</string>
     <key>CFBundleVersion</key>
-    <string>1.3.2</string>
+    <string>1.5.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.3.2</string>
+    <string>1.5.0</string>
     <key>CFBundleExecutable</key>
     <string>NotifyPoint</string>
     <key>CFBundlePackageType</key>
