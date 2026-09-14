@@ -4,7 +4,7 @@
 
 ## Development setup
 
-PingPlace is a macOS app built directly with `swiftc` and `make`.
+NotifyPoint is a macOS app built directly with `swiftc` and `make`.
 
 Useful commands:
 
@@ -20,7 +20,7 @@ The license targets require [LicenseOps](https://licenseops.github.io/docs/getti
 
 Artifacts:
 
-- `PingPlace.app`
+- `NotifyPoint.app`
 - `.build/`
 
 ## Tests
@@ -39,27 +39,27 @@ To diagnose notification placement issues, especially around wake, login, and sc
 
 ```bash
 make debug-build
-open PingPlace.app
+open NotifyPoint.app
 ```
 
 The debug build enables verbose tracing by default and writes logs to:
 
 ```bash
-~/Library/Logs/PingPlace/debug.log
+~/Library/Logs/NotifyPoint/debug.log
 ```
 
 You can override runtime debug mode with:
 
 ```bash
-defaults write com.grimridge.PingPlace debugMode -bool true
-defaults write com.grimridge.PingPlace debugMode -bool false
+defaults write io.github.bric3.notifypoint debugMode -bool true
+defaults write io.github.bric3.notifypoint debugMode -bool false
 ```
 
 Useful log commands:
 
 ```bash
-tail -f ~/Library/Logs/PingPlace/debug.log
-rg "Moved notification|Recovery retry|placeholder follow-up" ~/Library/Logs/PingPlace/debug.log
+tail -f ~/Library/Logs/NotifyPoint/debug.log
+rg "Moved notification|Recovery retry|placeholder follow-up" ~/Library/Logs/NotifyPoint/debug.log
 ```
 
 ### Menu preview mode
@@ -67,7 +67,7 @@ rg "Moved notification|Recovery retry|placeholder follow-up" ~/Library/Logs/Ping
 To inspect the menu UI without starting the Accessibility/event-handling backend, launch a separate preview instance:
 
 ```bash
-open -n PingPlace.app --args --menu-preview
+open -n NotifyPoint.app --args --menu-preview
 ```
 
 Preview mode:
@@ -99,9 +99,9 @@ What it does:
 
 - builds a fresh debug app
 - writes smoke-test-only settings into an isolated JSON file
-- asks before stopping any running regular PingPlace instance
+- asks before stopping any running regular NotifyPoint instance
 - leaves preview instances alone
-- launches the repo's `PingPlace.app` in `--smoke-test` mode
+- launches the repo's `NotifyPoint.app` in `--smoke-test` mode
 - sends a notification with `alerter`
 - exercises the laptop-display target as well when the app reports that the built-in display is available
 - checks the debug log for move activity
@@ -115,40 +115,40 @@ make smoke-test SMOKE_TEST_ARGS=--no-build
 
 Environment variables:
 
-- `PINGPLACE_SMOKE_SETTINGS_FILE`
-- `PINGPLACE_SMOKE_POSITION`
-- `PINGPLACE_SMOKE_DISPLAY_TARGET`
-- `PINGPLACE_SMOKE_TITLE`
-- `PINGPLACE_SMOKE_MESSAGE`
-- `PINGPLACE_SMOKE_SENDER`
-- `PINGPLACE_SMOKE_NOTIFICATION_TIMEOUT`
+- `NOTIFYPOINT_SMOKE_SETTINGS_FILE`
+- `NOTIFYPOINT_SMOKE_POSITION`
+- `NOTIFYPOINT_SMOKE_DISPLAY_TARGET`
+- `NOTIFYPOINT_SMOKE_TITLE`
+- `NOTIFYPOINT_SMOKE_MESSAGE`
+- `NOTIFYPOINT_SMOKE_SENDER`
+- `NOTIFYPOINT_SMOKE_NOTIFICATION_TIMEOUT`
 
 Notes:
 
 - `alerter` must be installed and allowed to post notifications
 - the smoke test is local-only and not suitable for CI
 - the launched smoke-test instance is closed automatically when the smoke-test run finishes
-- the smoke test stops the regular PingPlace instance before launching so the two instances do not fight over notifications
-- if a regular PingPlace instance was running before the smoke test, that same app bundle is reopened afterward
-- smoke-test preferences are isolated from the regular app by default in `${TMPDIR}/PingPlace.smoke-test.json`
+- the smoke test stops the regular NotifyPoint instance before launching so the two instances do not fight over notifications
+- if a regular NotifyPoint instance was running before the smoke test, that same app bundle is reopened afterward
+- smoke-test preferences are isolated from the regular app by default in `${TMPDIR}/NotifyPoint.smoke-test.json`
 - when the built-in display is unavailable, the laptop-display scenario is logged as skipped rather than treated as a failure
 
 ## Changing settings from the command line
 
-PingPlace currently reads settings at launch from `UserDefaults`.
+NotifyPoint currently reads settings at launch from `UserDefaults`.
 
 The regular app uses:
 
 ```bash
-defaults write com.grimridge.PingPlace notificationPosition -string deadCenter
-defaults write com.grimridge.PingPlace notificationDisplayTarget -string mainDisplay
-defaults write com.grimridge.PingPlace debugMode -bool true
+defaults write io.github.bric3.notifypoint notificationPosition -string deadCenter
+defaults write io.github.bric3.notifypoint notificationDisplayTarget -string mainDisplay
+defaults write io.github.bric3.notifypoint debugMode -bool true
 ```
 
 The smoke-test mode uses a separate JSON file by default:
 
 ```bash
-cat > "${TMPDIR}/PingPlace.smoke-test.json" <<'EOF'
+cat > "${TMPDIR}/NotifyPoint.smoke-test.json" <<'EOF'
 {
   "debugMode": true,
   "notificationDisplayTarget": "mainDisplay",
@@ -160,7 +160,7 @@ EOF
 You can also launch any instance against an explicit file:
 
 ```bash
-open -n PingPlace.app --args --smoke-test --settings-file "${TMPDIR}/PingPlace.smoke-test.json"
+open -n NotifyPoint.app --args --smoke-test --settings-file "${TMPDIR}/NotifyPoint.smoke-test.json"
 ```
 
 The smoke-test mode polls its JSON file and applies `notificationPosition` / `notificationDisplayTarget` changes live. The regular app still reads `UserDefaults` at launch.

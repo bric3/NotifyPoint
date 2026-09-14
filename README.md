@@ -1,16 +1,16 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-# PingPlace
+# NotifyPoint
 
 Control notification position on macOS.
 
 | Menu | Notification moved |
 | --- | --- |
-| ![PingPlace menu](.github/menu-screenshot.png)<br>![PingPlace display menu](.github/menu-display-screenshot.png) | ![Notification moved to top left](.github/moved-notification-to-top-left.png) |
+| ![NotifyPoint menu](.github/menu-screenshot.png)<br>![NotifyPoint display menu](.github/menu-display-screenshot.png) | ![Notification moved to top left](.github/moved-notification-to-top-left.png) |
 
 ## Fork changes
 
-This app is almost a complete rewrite to the original [PingPlace](https://github.com/NotWadeGrimridge/PingPlace), here's the change from 1.3.1.
+NotifyPoint is a substantially modified fork of the original [PingPlace](https://github.com/NotWadeGrimridge/PingPlace) 1.3.1. It was renamed to NotifyPoint in 2026.
 
 - Handles system sleep and lid close
 - External monitors plug/unplug, including different resolutions
@@ -29,20 +29,20 @@ XCode is needed.
 Hidden settings:
 
 - Enable debug logs:
-  - `defaults write com.grimridge.PingPlace debugMode -bool true`
+  - `defaults write io.github.bric3.notifypoint debugMode -bool true`
 - Disable debug logs:
-  - `defaults write com.grimridge.PingPlace debugMode -bool false`
+  - `defaults write io.github.bric3.notifypoint debugMode -bool false`
 - Debug log path:
-  - `~/Library/Logs/PingPlace/debug.log`
+  - `~/Library/Logs/NotifyPoint/debug.log`
 - Set notification position:
-  - `defaults write com.grimridge.PingPlace notificationPosition -string deadCenter`
+  - `defaults write io.github.bric3.notifypoint notificationPosition -string deadCenter`
 - Set notification display target:
-  - `defaults write com.grimridge.PingPlace notificationDisplayTarget -string mainDisplay`
-  - `defaults write com.grimridge.PingPlace notificationDisplayTarget -string builtInDisplay`
+  - `defaults write io.github.bric3.notifypoint notificationDisplayTarget -string mainDisplay`
+  - `defaults write io.github.bric3.notifypoint notificationDisplayTarget -string builtInDisplay`
 - Show the `Rerun Detection` menu item:
-  - `defaults write com.grimridge.PingPlace showRerunDetectionMenuItem -bool true`
+  - `defaults write io.github.bric3.notifypoint showRerunDetectionMenuItem -bool true`
 - Hide the `Rerun Detection` menu item:
-  - `defaults write com.grimridge.PingPlace showRerunDetectionMenuItem -bool false`
+  - `defaults write io.github.bric3.notifypoint showRerunDetectionMenuItem -bool false`
 
 ## Usage
 
@@ -67,9 +67,9 @@ For local development, debugging, and test workflows, see `CONTRIBUTING.md`.
 
 ## License
 
-Original app by [Wade Grimridge](https://github.com/NotWadeGrimridge/PingPlace).
+Original PingPlace app by [Wade Grimridge](https://github.com/NotWadeGrimridge/PingPlace).
 
-Fork and later evolutions by bric3.
+NotifyPoint fork and later evolutions by bric3.
 
 Copyright © 2025 Wade Grimridge.
 

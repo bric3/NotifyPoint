@@ -4,15 +4,15 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>PingPlace</string>
+    <string>NotifyPoint</string>
     <key>CFBundleIdentifier</key>
-    <string>com.grimridge.PingPlace</string>
+    <string>io.github.bric3.notifypoint</string>
     <key>CFBundleVersion</key>
     <string>1.3.2</string>
     <key>CFBundleShortVersionString</key>
     <string>1.3.2</string>
     <key>CFBundleExecutable</key>
-    <string>PingPlace</string>
+    <string>NotifyPoint</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIconFile</key>
@@ -28,6 +28,6 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSAccessibilityUsageDescription</key>
-    <string>PingPlace requires accessibility permissions to detect and reposition notifications on your screen.</string>
+    <string>NotifyPoint requires accessibility permissions to detect and reposition notifications on your screen.</string>
 </dict>
 </plist>

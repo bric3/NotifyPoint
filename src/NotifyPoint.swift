@@ -6,7 +6,7 @@ import os.log
 
 final class FileDebugLogger {
     private let fileURL: URL
-    private let queue: DispatchQueue = .init(label: "com.grimridge.PingPlace.FileDebugLogger")
+    private let queue: DispatchQueue = .init(label: "io.github.bric3.notifypoint.FileDebugLogger")
     private let timestampFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -21,7 +21,7 @@ final class FileDebugLogger {
         let logsDirectory = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Library")
             .appendingPathComponent("Logs")
-            .appendingPathComponent("PingPlace")
+            .appendingPathComponent("NotifyPoint")
         let fm = FileManager.default
         do {
             try fm.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
@@ -59,16 +59,16 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     ]
     private let paddingAboveDock: CGFloat = 30
     private var statusItem: NSStatusItem?
-    private let runtimeConfiguration = PingPlaceRuntimeConfiguration.detect(
+    private let runtimeConfiguration = NotifyPointRuntimeConfiguration.detect(
         arguments: CommandLine.arguments,
         environment: ProcessInfo.processInfo.environment
     )
-    private var launchMode: PingPlaceLaunchMode { runtimeConfiguration.launchMode }
-    private lazy var settings = PingPlaceSettings(source: runtimeConfiguration.settingsSource)
+    private var launchMode: NotifyPointLaunchMode { runtimeConfiguration.launchMode }
+    private lazy var settings = NotifyPointSettings(source: runtimeConfiguration.settingsSource)
     private lazy var isMenuBarIconHidden: Bool = settings.bool(forKey: .isMenuBarIconHidden)
-    private let logger: Logger = .init(subsystem: "com.grimridge.PingPlace", category: "NotificationMover")
+    private let logger: Logger = .init(subsystem: "io.github.bric3.notifypoint", category: "NotificationMover")
     private let isDebugBuild: Bool = {
-        #if PINGPLACE_DEBUG_BUILD
+        #if NOTIFYPOINT_DEBUG_BUILD
             true
         #else
             false
@@ -81,7 +81,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         return isDebugBuild
     }()
     private lazy var fileDebugLogger: FileDebugLogger? = debugMode ? FileDebugLogger() : nil
-    private let launchAgentPlistPath: String = NSHomeDirectory() + "/Library/LaunchAgents/com.grimridge.PingPlace.plist"
+    private let launchAgentPlistPath: String = NSHomeDirectory() + "/Library/LaunchAgents/io.github.bric3.notifypoint.plist"
     private let isPortableMac = MachineModelPolicy.currentModelIdentifier().map { MachineModelPolicy.isPortableMac(modelIdentifier: $0) } ?? false
     private weak var displayTargetPickerView: NotificationDisplayTargetPickerView?
     private weak var positionPickerView: NotificationPositionPickerView?
@@ -189,7 +189,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         guard AXIsProcessTrustedWithOptions(options as CFDictionary) else {
             let alert = NSAlert()
             alert.messageText = "Accessibility Permission Required"
-            alert.informativeText = "PingPlace needs accessibility permission to detect and move notifications.\n\nPlease grant permission in System Settings and restart the app."
+            alert.informativeText = "NotifyPoint needs accessibility permission to detect and move notifications.\n\nPlease grant permission in System Settings and restart the app."
             alert.addButton(withTitle: "Open System Settings")
             alert.addButton(withTitle: "Quit")
 
@@ -212,9 +212,9 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             menuBarIcon.isTemplate = true
             button.image = menuBarIcon
             if launchMode == .menuPreview {
-                button.toolTip = "PingPlace Preview"
+                button.toolTip = "NotifyPoint Preview"
             } else if launchMode == .smokeTest {
-                button.toolTip = "PingPlace Smoke Test"
+                button.toolTip = "NotifyPoint Smoke Test"
             }
         }
         statusItem?.menu = createMenu()
@@ -279,7 +279,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         menu.addItem(positionPickerItem)
 
         if launchMode != .menuPreview,
-           PingPlaceMenuPolicy.showsRerunDetectionMenuItem(
+           NotifyPointMenuPolicy.showsRerunDetectionMenuItem(
                explicitFlag: settings.bool(forKey: .showRerunDetectionMenuItem),
                isDebugBuild: isDebugBuild
            )
@@ -321,9 +321,9 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
 
     private func terminatePreviousInstanceIfNeeded() {
         DistributedNotificationCenter.default().postNotificationName(
-            PingPlaceInstanceIPC.terminateInstanceNotification,
+            NotifyPointInstanceIPC.terminateInstanceNotification,
             object: nil,
-            userInfo: PingPlaceInstanceIPC.terminationUserInfo(
+            userInfo: NotifyPointInstanceIPC.terminationUserInfo(
                 senderProcessID: ProcessInfo.processInfo.processIdentifier,
                 launchMode: launchMode
             ),
@@ -333,11 +333,11 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
 
     private func registerInstanceTerminationObserver() {
         instanceTerminationObserver = DistributedNotificationCenter.default().addObserver(
-            forName: PingPlaceInstanceIPC.terminateInstanceNotification,
+            forName: NotifyPointInstanceIPC.terminateInstanceNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard PingPlaceInstanceIPC.shouldTerminateInstance(
+            guard NotifyPointInstanceIPC.shouldTerminateInstance(
                 currentProcessID: ProcessInfo.processInfo.processIdentifier,
                 currentLaunchMode: self?.launchMode ?? .full,
                 userInfo: notification.userInfo
@@ -353,7 +353,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             case .full, .none:
                 modeDescription = "regular"
             }
-            self?.debugLog("Another \(modeDescription) PingPlace instance started. Terminating this instance.")
+            self?.debugLog("Another \(modeDescription) NotifyPoint instance started. Terminating this instance.")
             NSApplication.shared.terminate(nil)
         }
     }
@@ -361,7 +361,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     @objc private func toggleMenuBarIcon(_: NSMenuItem) {
         let alert = NSAlert()
         alert.messageText = "Hide Menu Bar Icon"
-        alert.informativeText = "The menu bar icon will be hidden. To show it again, launch PingPlace again."
+        alert.informativeText = "The menu bar icon will be hidden. To show it again, launch NotifyPoint again."
         alert.addButton(withTitle: "Hide Icon")
         alert.addButton(withTitle: "Cancel")
 
@@ -394,7 +394,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             <plist version="1.0">
             <dict>
                 <key>Label</key>
-                <string>com.grimridge.PingPlace</string>
+                <string>io.github.bric3.notifypoint</string>
                 <key>ProgramArguments</key>
                 <array>
                     <string>\(Bundle.main.executablePath!)</string>
@@ -744,7 +744,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             defer: false
         )
         aboutWindow.center()
-        aboutWindow.title = "About PingPlace"
+        aboutWindow.title = "About NotifyPoint"
         aboutWindow.delegate = self
 
         let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
@@ -754,7 +754,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
 
         let elements: [(NSView, CGFloat)] = [
             (createIconView(), 165),
-            (createLabel("PingPlace", font: .boldSystemFont(ofSize: 16)), 110),
+            (createLabel("NotifyPoint", font: .boldSystemFont(ofSize: 16)), 110),
             (createLabel("Version \(version)"), 90),
             (createLabel("Fork and later evolutions by bric3"), 70),
             (createOriginalAppLinkButton(), 50),
@@ -1219,7 +1219,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
 }
 
 @main
-struct PingPlaceApp {
+struct NotifyPointApp {
     static func main() {
         let app: NSApplication = .shared
         let delegate: NotificationMover = .init()

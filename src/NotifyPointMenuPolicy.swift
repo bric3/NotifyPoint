@@ -2,7 +2,7 @@
 
 import Foundation
 
-enum PingPlaceMenuPolicy {
+enum NotifyPointMenuPolicy {
     static func showsRerunDetectionMenuItem(
         explicitFlag: Bool,
         isDebugBuild: Bool

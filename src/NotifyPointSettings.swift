@@ -2,7 +2,7 @@
 
 import Foundation
 
-enum PingPlaceSettingsKey: String, CaseIterable {
+enum NotifyPointSettingsKey: String, CaseIterable {
     case isMenuBarIconHidden
     case debugMode
     case showRerunDetectionMenuItem
@@ -10,9 +10,9 @@ enum PingPlaceSettingsKey: String, CaseIterable {
     case notificationDisplayTarget
 }
 
-enum PingPlaceSettingsSource: Equatable {
+enum NotifyPointSettingsSource: Equatable {
     static let defaultSmokeTestFile = URL(fileURLWithPath: NSTemporaryDirectory())
-        .appendingPathComponent("PingPlace.smoke-test.json")
+        .appendingPathComponent("NotifyPoint.smoke-test.json")
 
     case standard
     case suite(String)
@@ -39,13 +39,13 @@ enum PingPlaceSettingsSource: Equatable {
     static func detect(
         arguments: [String],
         environment: [String: String],
-        launchMode: PingPlaceLaunchMode
-    ) -> PingPlaceSettingsSource {
+        launchMode: NotifyPointLaunchMode
+    ) -> NotifyPointSettingsSource {
         if let url = explicitFileURL(arguments: arguments) {
             return .file(url)
         }
 
-        if let filePath = environment["PINGPLACE_SETTINGS_FILE"]?
+        if let filePath = environment["NOTIFYPOINT_SETTINGS_FILE"]?
             .trimmingCharacters(in: .whitespacesAndNewlines),
             !filePath.isEmpty
         {
@@ -56,7 +56,7 @@ enum PingPlaceSettingsSource: Equatable {
             return .suite(suiteName)
         }
 
-        if let suiteName = environment["PINGPLACE_SETTINGS_SUITE"]?
+        if let suiteName = environment["NOTIFYPOINT_SETTINGS_SUITE"]?
             .trimmingCharacters(in: .whitespacesAndNewlines),
             !suiteName.isEmpty
         {
@@ -101,32 +101,32 @@ enum PingPlaceSettingsSource: Equatable {
     }
 }
 
-struct PingPlaceRuntimeConfiguration: Equatable {
-    let launchMode: PingPlaceLaunchMode
-    let settingsSource: PingPlaceSettingsSource
+struct NotifyPointRuntimeConfiguration: Equatable {
+    let launchMode: NotifyPointLaunchMode
+    let settingsSource: NotifyPointSettingsSource
 
-    static func detect(arguments: [String], environment: [String: String]) -> PingPlaceRuntimeConfiguration {
-        let launchMode = PingPlaceLaunchMode.detect(arguments: arguments, environment: environment)
-        let settingsSource = PingPlaceSettingsSource.detect(
+    static func detect(arguments: [String], environment: [String: String]) -> NotifyPointRuntimeConfiguration {
+        let launchMode = NotifyPointLaunchMode.detect(arguments: arguments, environment: environment)
+        let settingsSource = NotifyPointSettingsSource.detect(
             arguments: arguments,
             environment: environment,
             launchMode: launchMode
         )
-        return PingPlaceRuntimeConfiguration(
+        return NotifyPointRuntimeConfiguration(
             launchMode: launchMode,
             settingsSource: settingsSource
         )
     }
 }
 
-private struct PingPlaceSettingsPayload: Codable {
+private struct NotifyPointSettingsPayload: Codable {
     var isMenuBarIconHidden: Bool?
     var debugMode: Bool?
     var showRerunDetectionMenuItem: Bool?
     var notificationPosition: String?
     var notificationDisplayTarget: String?
 
-    func value(for key: PingPlaceSettingsKey) -> Any? {
+    func value(for key: NotifyPointSettingsKey) -> Any? {
         switch key {
         case .isMenuBarIconHidden:
             return isMenuBarIconHidden
@@ -141,7 +141,7 @@ private struct PingPlaceSettingsPayload: Codable {
         }
     }
 
-    mutating func set(_ value: Any?, for key: PingPlaceSettingsKey) {
+    mutating func set(_ value: Any?, for key: NotifyPointSettingsKey) {
         switch key {
         case .isMenuBarIconHidden:
             isMenuBarIconHidden = value as? Bool
@@ -157,13 +157,13 @@ private struct PingPlaceSettingsPayload: Codable {
     }
 }
 
-final class PingPlaceSettings {
-    let source: PingPlaceSettingsSource
+final class NotifyPointSettings {
+    let source: NotifyPointSettingsSource
     private let defaults: UserDefaults
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    init(source: PingPlaceSettingsSource) {
+    init(source: NotifyPointSettingsSource) {
         self.source = source
         switch source {
         case .standard:
@@ -184,7 +184,7 @@ final class PingPlaceSettings {
         source.fileURL
     }
 
-    func bool(forKey key: PingPlaceSettingsKey) -> Bool {
+    func bool(forKey key: NotifyPointSettingsKey) -> Bool {
         switch source {
         case .file:
             return (payload()?.value(for: key) as? Bool) ?? false
@@ -193,7 +193,7 @@ final class PingPlaceSettings {
         }
     }
 
-    func object(forKey key: PingPlaceSettingsKey) -> Any? {
+    func object(forKey key: NotifyPointSettingsKey) -> Any? {
         switch source {
         case .file:
             return payload()?.value(for: key)
@@ -202,7 +202,7 @@ final class PingPlaceSettings {
         }
     }
 
-    func string(forKey key: PingPlaceSettingsKey) -> String? {
+    func string(forKey key: NotifyPointSettingsKey) -> String? {
         switch source {
         case .file:
             return payload()?.value(for: key) as? String
@@ -211,10 +211,10 @@ final class PingPlaceSettings {
         }
     }
 
-    func set(_ value: Any?, forKey key: PingPlaceSettingsKey) {
+    func set(_ value: Any?, forKey key: NotifyPointSettingsKey) {
         switch source {
         case .file:
-            var currentPayload = payload() ?? PingPlaceSettingsPayload()
+            var currentPayload = payload() ?? NotifyPointSettingsPayload()
             currentPayload.set(value, for: key)
             write(payload: currentPayload)
         case .standard, .suite:
@@ -222,13 +222,13 @@ final class PingPlaceSettings {
         }
     }
 
-    private func payload() -> PingPlaceSettingsPayload? {
+    private func payload() -> NotifyPointSettingsPayload? {
         guard case let .file(url) = source else { return nil }
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? decoder.decode(PingPlaceSettingsPayload.self, from: data)
+        return try? decoder.decode(NotifyPointSettingsPayload.self, from: data)
     }
 
-    private func write(payload: PingPlaceSettingsPayload) {
+    private func write(payload: NotifyPointSettingsPayload) {
         guard case let .file(url) = source else { return }
         do {
             let data = try encoder.encode(payload)

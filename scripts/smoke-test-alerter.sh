@@ -4,17 +4,17 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_PATH="${PINGPLACE_SMOKE_APP_PATH:-$ROOT_DIR/PingPlace.app}"
-LOG_PATH="${PINGPLACE_LOG_PATH:-$HOME/Library/Logs/PingPlace/debug.log}"
-SENDER="${PINGPLACE_SMOKE_SENDER:-com.apple.Terminal}"
-TITLE="${PINGPLACE_SMOKE_TITLE:-PingPlace Smoke}"
-MESSAGE="${PINGPLACE_SMOKE_MESSAGE:-demo notification}"
-NOTIFICATION_TIMEOUT="${PINGPLACE_SMOKE_NOTIFICATION_TIMEOUT:-1}"
-STARTUP_TIMEOUT="${PINGPLACE_SMOKE_STARTUP_TIMEOUT:-10}"
-RESULT_TIMEOUT="${PINGPLACE_SMOKE_RESULT_TIMEOUT:-10}"
-SETTINGS_FILE="${PINGPLACE_SMOKE_SETTINGS_FILE:-${TMPDIR:-/tmp}/PingPlace.smoke-test.json}"
-POSITION="${PINGPLACE_SMOKE_POSITION:-deadCenter}"
-PRIMARY_DISPLAY_TARGET="${PINGPLACE_SMOKE_DISPLAY_TARGET:-mainDisplay}"
+APP_PATH="${NOTIFYPOINT_SMOKE_APP_PATH:-$ROOT_DIR/NotifyPoint.app}"
+LOG_PATH="${NOTIFYPOINT_LOG_PATH:-$HOME/Library/Logs/NotifyPoint/debug.log}"
+SENDER="${NOTIFYPOINT_SMOKE_SENDER:-com.apple.Terminal}"
+TITLE="${NOTIFYPOINT_SMOKE_TITLE:-NotifyPoint Smoke}"
+MESSAGE="${NOTIFYPOINT_SMOKE_MESSAGE:-demo notification}"
+NOTIFICATION_TIMEOUT="${NOTIFYPOINT_SMOKE_NOTIFICATION_TIMEOUT:-1}"
+STARTUP_TIMEOUT="${NOTIFYPOINT_SMOKE_STARTUP_TIMEOUT:-10}"
+RESULT_TIMEOUT="${NOTIFYPOINT_SMOKE_RESULT_TIMEOUT:-10}"
+SETTINGS_FILE="${NOTIFYPOINT_SMOKE_SETTINGS_FILE:-${TMPDIR:-/tmp}/NotifyPoint.smoke-test.json}"
+POSITION="${NOTIFYPOINT_SMOKE_POSITION:-deadCenter}"
+PRIMARY_DISPLAY_TARGET="${NOTIFYPOINT_SMOKE_DISPLAY_TARGET:-mainDisplay}"
 
 assume_yes=0
 skip_build=0
@@ -25,17 +25,17 @@ usage() {
   cat <<'EOF'
 Usage: smoke-test-alerter.sh [--yes] [--no-build]
 
-Runs a local PingPlace smoke test by:
+Runs a local NotifyPoint smoke test by:
 1. optionally building a fresh debug app
 2. writing smoke-test-only settings to an isolated JSON file
-3. asking before stopping any running regular PingPlace instance
-4. launching the repo's PingPlace.app in smoke-test mode
+3. asking before stopping any running regular NotifyPoint instance
+4. launching the repo's NotifyPoint.app in smoke-test mode
 5. sending a test notification with alerter
 6. checking the debug log for move activity
 
 Options:
-  --yes       do not prompt before stopping a running regular PingPlace instance
-  --no-build  reuse the existing PingPlace.app bundle
+  --yes       do not prompt before stopping a running regular NotifyPoint instance
+  --no-build  reuse the existing NotifyPoint.app bundle
 EOF
 }
 
@@ -48,7 +48,7 @@ require_command() {
 
 regular_instances() {
   ps -axo pid=,command= | awk '
-    index($0, "/PingPlace.app/Contents/MacOS/PingPlace") > 0 &&
+    index($0, "/NotifyPoint.app/Contents/MacOS/NotifyPoint") > 0 &&
     index($0, "--menu-preview") == 0 &&
     index($0, "--smoke-test") == 0 {
       print
@@ -65,12 +65,12 @@ first_regular_app_bundle_path() {
   command_path="$(printf '%s\n' "$instance" | awk '{$1=""; sub(/^ /, ""); print}')"
   [[ -z "$command_path" ]] && return 1
 
-  printf '%s\n' "${command_path%/Contents/MacOS/PingPlace}"
+  printf '%s\n' "${command_path%/Contents/MacOS/NotifyPoint}"
 }
 
 smoke_test_instances() {
   ps -axo pid=,command= | awk '
-    index($0, "/PingPlace.app/Contents/MacOS/PingPlace") > 0 &&
+    index($0, "/NotifyPoint.app/Contents/MacOS/NotifyPoint") > 0 &&
     index($0, "--smoke-test") > 0 {
       print
     }
@@ -126,7 +126,7 @@ run_smoke_scenario() {
   open -n "$APP_PATH" --args --smoke-test --settings-file "$SETTINGS_FILE"
 
   if ! wait_for_log_pattern "$baseline_lines" "Application launched." "$STARTUP_TIMEOUT"; then
-    printf 'error: timed out waiting for PingPlace to launch for scenario: %s\n' "$scenario_name" >&2
+    printf 'error: timed out waiting for NotifyPoint to launch for scenario: %s\n' "$scenario_name" >&2
     log_lines_since "$baseline_lines" | tail -n 80 >&2
     exit 1
   fi
@@ -134,7 +134,7 @@ run_smoke_scenario() {
   alerter --sender "$SENDER" --title "$TITLE ($scenario_name)" --message "$MESSAGE" --timeout "$NOTIFICATION_TIMEOUT"
 
   if ! wait_for_log_pattern "$baseline_lines" "Moved notification to" "$RESULT_TIMEOUT"; then
-    printf 'error: timed out waiting for PingPlace to move the smoke-test notification for scenario: %s\n' "$scenario_name" >&2
+    printf 'error: timed out waiting for NotifyPoint to move the smoke-test notification for scenario: %s\n' "$scenario_name" >&2
     log_lines_since "$baseline_lines" | tail -n 120 >&2
     exit 1
   fi
@@ -165,7 +165,7 @@ stop_regular_instances_if_needed() {
     return 0
   fi
 
-  printf 'Regular PingPlace instance(s) detected:\n%s\n' "$instances"
+  printf 'Regular NotifyPoint instance(s) detected:\n%s\n' "$instances"
   regular_app_bundle_to_restart="$(first_regular_app_bundle_path || true)"
   if [[ -n "$regular_app_bundle_to_restart" ]]; then
     restart_regular_app=1
@@ -173,12 +173,12 @@ stop_regular_instances_if_needed() {
 
   if (( assume_yes == 0 )); then
     if [[ ! -t 0 ]]; then
-      printf 'error: refusing to stop PingPlace without confirmation in a non-interactive shell; rerun with --yes\n' >&2
+      printf 'error: refusing to stop NotifyPoint without confirmation in a non-interactive shell; rerun with --yes\n' >&2
       exit 1
     fi
 
     local reply
-    read -r -p "Stop the running regular PingPlace instance(s) and continue? [y/N] " reply
+    read -r -p "Stop the running regular NotifyPoint instance(s) and continue? [y/N] " reply
     case "$reply" in
       [yY]|[yY][eE][sS]) ;;
       *)
@@ -203,7 +203,7 @@ stop_regular_instances_if_needed() {
     sleep 0.2
   done
 
-  printf 'error: timed out waiting for existing regular PingPlace instance(s) to exit\n' >&2
+  printf 'error: timed out waiting for existing regular NotifyPoint instance(s) to exit\n' >&2
   exit 1
 }
 
@@ -230,7 +230,7 @@ stop_smoke_test_instances() {
     sleep 0.2
   done
 
-  printf 'warning: timed out waiting for smoke-test PingPlace instance(s) to exit\n' >&2
+  printf 'warning: timed out waiting for smoke-test NotifyPoint instance(s) to exit\n' >&2
 }
 
 cleanup_smoke_test() {

@@ -2,12 +2,12 @@
 
 import Foundation
 
-enum PingPlaceLaunchMode: String, Equatable {
+enum NotifyPointLaunchMode: String, Equatable {
     case full
     case menuPreview
     case smokeTest
 
-    static func detect(arguments: [String], environment: [String: String]) -> PingPlaceLaunchMode {
+    static func detect(arguments: [String], environment: [String: String]) -> NotifyPointLaunchMode {
         if arguments.contains("--menu-preview") {
             return .menuPreview
         }
@@ -16,13 +16,13 @@ enum PingPlaceLaunchMode: String, Equatable {
             return .smokeTest
         }
 
-        if let rawValue = environment["PINGPLACE_MENU_PREVIEW"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+        if let rawValue = environment["NOTIFYPOINT_MENU_PREVIEW"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
            ["1", "true", "yes", "on"].contains(rawValue)
         {
             return .menuPreview
         }
 
-        if let rawValue = environment["PINGPLACE_SMOKE_TEST"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+        if let rawValue = environment["NOTIFYPOINT_SMOKE_TEST"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
            ["1", "true", "yes", "on"].contains(rawValue)
         {
             return .smokeTest

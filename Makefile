@@ -10,7 +10,7 @@ LICENSEOPS ?= lops
 BUILD_DEPENDENCIES = bash swiftc lipo codesign git shasum awk find date
 SMOKE_TEST_DEPENDENCIES = bash open alerter grep awk ps kill tail wc head make
 APP_SWIFT_SOURCES = $(sort $(wildcard src/*.swift)) $(BUILD_INFO_SWIFT)
-TEST_SWIFT_SOURCES = src/MachineModelPolicy.swift src/NotificationDisplayTarget.swift src/NotificationDisplayTargetPolicy.swift src/PingPlaceLaunchMode.swift src/PingPlaceMenuPolicy.swift src/PingPlaceMenuPreviewIPC.swift src/PingPlaceSettings.swift src/NotificationPosition.swift src/NotificationPositionGridLayout.swift src/NotificationGeometry.swift src/NotificationPolicyTypes.swift src/NotificationMovePolicy.swift src/NotificationCenterStatePolicy.swift src/ScreenResolutionPolicy.swift src/TreeTraversal.swift src/NotificationController.swift src/NotificationWindowPlacementEngine.swift tests/NotificationBehaviorTests.swift tests/NotificationPositionPickerTests.swift
+TEST_SWIFT_SOURCES = src/MachineModelPolicy.swift src/NotificationDisplayTarget.swift src/NotificationDisplayTargetPolicy.swift src/NotifyPointLaunchMode.swift src/NotifyPointMenuPolicy.swift src/NotifyPointMenuPreviewIPC.swift src/NotifyPointSettings.swift src/NotificationPosition.swift src/NotificationPositionGridLayout.swift src/NotificationGeometry.swift src/NotificationPolicyTypes.swift src/NotificationMovePolicy.swift src/NotificationCenterStatePolicy.swift src/ScreenResolutionPolicy.swift src/TreeTraversal.swift src/NotificationController.swift src/NotificationWindowPlacementEngine.swift tests/NotificationBehaviorTests.swift tests/NotificationPositionPickerTests.swift
 
 ifneq ("$(wildcard $(CODESIGN_IDENTITY_FILE))","")
 CODESIGN_IDENTITY ?= $(shell cat $(CODESIGN_IDENTITY_FILE))
@@ -58,34 +58,34 @@ check-smoke-test-deps: check-build-deps
 build: check-build-deps
 	@mkdir -p .build
 	@$(MAKE) generate-build-info
-	@mkdir -p PingPlace.app/Contents/MacOS
-	@mkdir -p PingPlace.app/Contents/Resources
-	@cp src/Info.plist PingPlace.app/Contents/
-	@cp LICENSE PingPlace.app/Contents/Resources/
-	@cp src/assets/app-icon/icon.icns PingPlace.app/Contents/Resources/
-	@cp src/assets/menu-bar-icon/MenuBarIcon*.png PingPlace.app/Contents/Resources/
-	swiftc $(APP_SWIFT_SOURCES) -o PingPlace.app/Contents/MacOS/PingPlace-x86_64 -O -target x86_64-apple-macos14.0
-	swiftc $(APP_SWIFT_SOURCES) -o PingPlace.app/Contents/MacOS/PingPlace-arm64 -O -target arm64-apple-macos14.0
-	lipo -create -output PingPlace.app/Contents/MacOS/PingPlace PingPlace.app/Contents/MacOS/PingPlace-x86_64 PingPlace.app/Contents/MacOS/PingPlace-arm64
-	rm PingPlace.app/Contents/MacOS/PingPlace-x86_64 PingPlace.app/Contents/MacOS/PingPlace-arm64
+	@mkdir -p NotifyPoint.app/Contents/MacOS
+	@mkdir -p NotifyPoint.app/Contents/Resources
+	@cp src/Info.plist NotifyPoint.app/Contents/
+	@cp LICENSE NotifyPoint.app/Contents/Resources/
+	@cp src/assets/app-icon/icon.icns NotifyPoint.app/Contents/Resources/
+	@cp src/assets/menu-bar-icon/MenuBarIcon*.png NotifyPoint.app/Contents/Resources/
+	swiftc $(APP_SWIFT_SOURCES) -o NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 -O -target x86_64-apple-macos14.0
+	swiftc $(APP_SWIFT_SOURCES) -o NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64 -O -target arm64-apple-macos14.0
+	lipo -create -output NotifyPoint.app/Contents/MacOS/NotifyPoint NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64
+	rm NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64
 	$(warn_adhoc_signing)
-	codesign --entitlements src/PingPlace.entitlements -fvs "$(CODESIGN_IDENTITY)" PingPlace.app
+	codesign --entitlements src/NotifyPoint.entitlements -fvs "$(CODESIGN_IDENTITY)" NotifyPoint.app
 
 debug-build: check-build-deps
 	@mkdir -p .build
 	@$(MAKE) generate-build-info
-	@mkdir -p PingPlace.app/Contents/MacOS
-	@mkdir -p PingPlace.app/Contents/Resources
-	@cp src/Info.plist PingPlace.app/Contents/
-	@cp LICENSE PingPlace.app/Contents/Resources/
-	@cp src/assets/app-icon/icon.icns PingPlace.app/Contents/Resources/
-	@cp src/assets/menu-bar-icon/MenuBarIcon*.png PingPlace.app/Contents/Resources/
-	swiftc $(APP_SWIFT_SOURCES) -o PingPlace.app/Contents/MacOS/PingPlace-x86_64 -Onone -g -D PINGPLACE_DEBUG_BUILD -target x86_64-apple-macos14.0
-	swiftc $(APP_SWIFT_SOURCES) -o PingPlace.app/Contents/MacOS/PingPlace-arm64 -Onone -g -D PINGPLACE_DEBUG_BUILD -target arm64-apple-macos14.0
-	lipo -create -output PingPlace.app/Contents/MacOS/PingPlace PingPlace.app/Contents/MacOS/PingPlace-x86_64 PingPlace.app/Contents/MacOS/PingPlace-arm64
-	rm PingPlace.app/Contents/MacOS/PingPlace-x86_64 PingPlace.app/Contents/MacOS/PingPlace-arm64
+	@mkdir -p NotifyPoint.app/Contents/MacOS
+	@mkdir -p NotifyPoint.app/Contents/Resources
+	@cp src/Info.plist NotifyPoint.app/Contents/
+	@cp LICENSE NotifyPoint.app/Contents/Resources/
+	@cp src/assets/app-icon/icon.icns NotifyPoint.app/Contents/Resources/
+	@cp src/assets/menu-bar-icon/MenuBarIcon*.png NotifyPoint.app/Contents/Resources/
+	swiftc $(APP_SWIFT_SOURCES) -o NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 -Onone -g -D NOTIFYPOINT_DEBUG_BUILD -target x86_64-apple-macos14.0
+	swiftc $(APP_SWIFT_SOURCES) -o NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64 -Onone -g -D NOTIFYPOINT_DEBUG_BUILD -target arm64-apple-macos14.0
+	lipo -create -output NotifyPoint.app/Contents/MacOS/NotifyPoint NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64
+	rm NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64
 	$(warn_adhoc_signing)
-	codesign --entitlements src/PingPlace.entitlements -fvs "$(CODESIGN_IDENTITY)" PingPlace.app
+	codesign --entitlements src/NotifyPoint.entitlements -fvs "$(CODESIGN_IDENTITY)" NotifyPoint.app
 
 generate-build-info:
 	@mkdir -p .build
@@ -102,7 +102,7 @@ generate-build-info:
 		'}' > "$(BUILD_INFO_SWIFT)"
 
 run:
-	@open PingPlace.app
+	@open NotifyPoint.app
 
 test: check-build-deps
 	@mkdir -p .build
@@ -126,11 +126,11 @@ license-fix:
 	$(LICENSEOPS) fix
 
 clean:
-	@rm -rf PingPlace.app PingPlace.app.tar.gz .build
+	@rm -rf NotifyPoint.app NotifyPoint.app.tar.gz .build
 
 publish:
-	@tar --uid=0 --gid=0 -czf PingPlace.app.tar.gz PingPlace.app
-	@shasum -a 256 PingPlace.app.tar.gz | cut -d ' ' -f 1
+	@tar --uid=0 --gid=0 -czf NotifyPoint.app.tar.gz NotifyPoint.app
+	@shasum -a 256 NotifyPoint.app.tar.gz | cut -d ' ' -f 1
 	@echo "don't forget to change the version number"
 
 save-codesign-identity:

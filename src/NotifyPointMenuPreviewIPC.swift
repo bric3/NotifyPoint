@@ -3,12 +3,12 @@
 import AppKit
 import Foundation
 
-enum PingPlaceInstanceIPC {
-    static let terminateInstanceNotification = Notification.Name("com.grimridge.PingPlace.instance.terminate")
+enum NotifyPointInstanceIPC {
+    static let terminateInstanceNotification = Notification.Name("io.github.bric3.notifypoint.instance.terminate")
     static let senderProcessIDKey = "senderProcessID"
     static let launchModeKey = "launchMode"
 
-    static func terminationUserInfo(senderProcessID: Int32, launchMode: PingPlaceLaunchMode) -> [String: String] {
+    static func terminationUserInfo(senderProcessID: Int32, launchMode: NotifyPointLaunchMode) -> [String: String] {
         [
             senderProcessIDKey: String(senderProcessID),
             launchModeKey: launchMode.rawValue,
@@ -17,13 +17,13 @@ enum PingPlaceInstanceIPC {
 
     static func shouldTerminateInstance(
         currentProcessID: Int32,
-        currentLaunchMode: PingPlaceLaunchMode,
+        currentLaunchMode: NotifyPointLaunchMode,
         userInfo: [AnyHashable: Any]?
     ) -> Bool {
         guard let rawSenderProcessID = userInfo?[senderProcessIDKey] as? String,
               let senderProcessID = Int32(rawSenderProcessID),
               let rawLaunchMode = userInfo?[launchModeKey] as? String,
-              let launchMode = PingPlaceLaunchMode(rawValue: rawLaunchMode)
+              let launchMode = NotifyPointLaunchMode(rawValue: rawLaunchMode)
         else {
             return false
         }

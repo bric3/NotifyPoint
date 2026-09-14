@@ -180,7 +180,7 @@ private func testCorrectedRootPositionCompensatesForBannerError() throws {
 
 private func testLaunchModeDefaultsToFull() throws {
     try assertEqual(
-        PingPlaceLaunchMode.detect(arguments: ["PingPlace"], environment: [:]),
+        NotifyPointLaunchMode.detect(arguments: ["NotifyPoint"], environment: [:]),
         .full,
         "default launch mode should be full"
     )
@@ -188,7 +188,7 @@ private func testLaunchModeDefaultsToFull() throws {
 
 private func testLaunchModeUsesArgumentForPreview() throws {
     try assertEqual(
-        PingPlaceLaunchMode.detect(arguments: ["PingPlace", "--menu-preview"], environment: [:]),
+        NotifyPointLaunchMode.detect(arguments: ["NotifyPoint", "--menu-preview"], environment: [:]),
         .menuPreview,
         "menu preview argument should enable preview mode"
     )
@@ -196,7 +196,7 @@ private func testLaunchModeUsesArgumentForPreview() throws {
 
 private func testLaunchModeUsesEnvironmentForPreview() throws {
     try assertEqual(
-        PingPlaceLaunchMode.detect(arguments: ["PingPlace"], environment: ["PINGPLACE_MENU_PREVIEW": "true"]),
+        NotifyPointLaunchMode.detect(arguments: ["NotifyPoint"], environment: ["NOTIFYPOINT_MENU_PREVIEW": "true"]),
         .menuPreview,
         "menu preview environment flag should enable preview mode"
     )
@@ -204,7 +204,7 @@ private func testLaunchModeUsesEnvironmentForPreview() throws {
 
 private func testLaunchModeUsesArgumentForSmokeTest() throws {
     try assertEqual(
-        PingPlaceLaunchMode.detect(arguments: ["PingPlace", "--smoke-test"], environment: [:]),
+        NotifyPointLaunchMode.detect(arguments: ["NotifyPoint", "--smoke-test"], environment: [:]),
         .smokeTest,
         "smoke-test argument should enable smoke-test mode"
     )
@@ -212,32 +212,32 @@ private func testLaunchModeUsesArgumentForSmokeTest() throws {
 
 private func testSettingsSourceDefaultsToSmokeFileForSmokeTestMode() throws {
     try assertEqual(
-        PingPlaceSettingsSource.detect(
-            arguments: ["PingPlace", "--smoke-test"],
+        NotifyPointSettingsSource.detect(
+            arguments: ["NotifyPoint", "--smoke-test"],
             environment: [:],
             launchMode: .smokeTest
         ),
-        .file(PingPlaceSettingsSource.defaultSmokeTestFile),
+        .file(NotifyPointSettingsSource.defaultSmokeTestFile),
         "smoke-test mode should default to the isolated smoke-test settings file"
     )
 }
 
 private func testSettingsSourceUsesExplicitFileWhenProvided() throws {
     try assertEqual(
-        PingPlaceSettingsSource.detect(
-            arguments: ["PingPlace", "--smoke-test", "--settings-file", "/tmp/pingplace-test.json"],
+        NotifyPointSettingsSource.detect(
+            arguments: ["NotifyPoint", "--smoke-test", "--settings-file", "/tmp/notifypoint-test.json"],
             environment: [:],
             launchMode: .smokeTest
         ),
-        .file(URL(fileURLWithPath: "/tmp/pingplace-test.json")),
+        .file(URL(fileURLWithPath: "/tmp/notifypoint-test.json")),
         "explicit settings file arguments should override the smoke-test default"
     )
 }
 
 private func testSettingsSourceUsesExplicitSuiteWhenProvided() throws {
     try assertEqual(
-        PingPlaceSettingsSource.detect(
-            arguments: ["PingPlace", "--settings-suite", "com.example.custom"],
+        NotifyPointSettingsSource.detect(
+            arguments: ["NotifyPoint", "--settings-suite", "com.example.custom"],
             environment: [:],
             launchMode: .full
         ),
@@ -248,12 +248,12 @@ private func testSettingsSourceUsesExplicitSuiteWhenProvided() throws {
 
 private func testSettingsSourceUsesEnvironmentFileWhenProvided() throws {
     try assertEqual(
-        PingPlaceSettingsSource.detect(
-            arguments: ["PingPlace"],
-            environment: ["PINGPLACE_SETTINGS_FILE": "/tmp/pingplace-environment.json"],
+        NotifyPointSettingsSource.detect(
+            arguments: ["NotifyPoint"],
+            environment: ["NOTIFYPOINT_SETTINGS_FILE": "/tmp/notifypoint-environment.json"],
             launchMode: .full
         ),
-        .file(URL(fileURLWithPath: "/tmp/pingplace-environment.json")),
+        .file(URL(fileURLWithPath: "/tmp/notifypoint-environment.json")),
         "settings file environment variables should override the standard settings source"
     )
 }
@@ -264,7 +264,7 @@ private func testFileBackedSettingsPersistValues() throws {
         .appendingPathExtension("json")
     defer { try? FileManager.default.removeItem(at: settingsFile) }
 
-    let settings = PingPlaceSettings(source: .file(settingsFile))
+    let settings = NotifyPointSettings(source: .file(settingsFile))
     settings.set("deadCenter", forKey: .notificationPosition)
     settings.set("builtInDisplay", forKey: .notificationDisplayTarget)
     settings.set(true, forKey: .debugMode)
@@ -294,7 +294,7 @@ private func testFileBackedSettingsPersistValues() throws {
 
 private func testMenuPolicyShowsRerunDetectionMenuItemWhenDebugBuild() throws {
     try assertEqual(
-        PingPlaceMenuPolicy.showsRerunDetectionMenuItem(explicitFlag: false, isDebugBuild: true),
+        NotifyPointMenuPolicy.showsRerunDetectionMenuItem(explicitFlag: false, isDebugBuild: true),
         true,
         "debug builds should always show the rerun-detection menu item"
     )
@@ -302,7 +302,7 @@ private func testMenuPolicyShowsRerunDetectionMenuItemWhenDebugBuild() throws {
 
 private func testMenuPolicyShowsRerunDetectionMenuItemWhenExplicitlyEnabled() throws {
     try assertEqual(
-        PingPlaceMenuPolicy.showsRerunDetectionMenuItem(explicitFlag: true, isDebugBuild: false),
+        NotifyPointMenuPolicy.showsRerunDetectionMenuItem(explicitFlag: true, isDebugBuild: false),
         true,
         "the rerun-detection menu item should be shown when enabled by settings"
     )
@@ -310,7 +310,7 @@ private func testMenuPolicyShowsRerunDetectionMenuItemWhenExplicitlyEnabled() th
 
 private func testMenuPolicyHidesRerunDetectionMenuItemByDefaultInReleaseBuilds() throws {
     try assertEqual(
-        PingPlaceMenuPolicy.showsRerunDetectionMenuItem(explicitFlag: false, isDebugBuild: false),
+        NotifyPointMenuPolicy.showsRerunDetectionMenuItem(explicitFlag: false, isDebugBuild: false),
         false,
         "release builds should hide the rerun-detection menu item by default"
     )
@@ -416,9 +416,9 @@ private func testDisplayTargetPolicyUsesGenericSectionTitleWhenSelectorIsVisible
 }
 
 private func testInstanceIPCDoesNotTerminateSameProcess() throws {
-    let userInfo = PingPlaceInstanceIPC.terminationUserInfo(senderProcessID: 4242, launchMode: .menuPreview)
+    let userInfo = NotifyPointInstanceIPC.terminationUserInfo(senderProcessID: 4242, launchMode: .menuPreview)
     try assertEqual(
-        PingPlaceInstanceIPC.shouldTerminateInstance(
+        NotifyPointInstanceIPC.shouldTerminateInstance(
             currentProcessID: 4242,
             currentLaunchMode: .menuPreview,
             userInfo: userInfo
@@ -429,9 +429,9 @@ private func testInstanceIPCDoesNotTerminateSameProcess() throws {
 }
 
 private func testInstanceIPCTerminatesDifferentProcessInSameMode() throws {
-    let userInfo = PingPlaceInstanceIPC.terminationUserInfo(senderProcessID: 4242, launchMode: .menuPreview)
+    let userInfo = NotifyPointInstanceIPC.terminationUserInfo(senderProcessID: 4242, launchMode: .menuPreview)
     try assertEqual(
-        PingPlaceInstanceIPC.shouldTerminateInstance(
+        NotifyPointInstanceIPC.shouldTerminateInstance(
             currentProcessID: 9898,
             currentLaunchMode: .menuPreview,
             userInfo: userInfo
@@ -442,34 +442,34 @@ private func testInstanceIPCTerminatesDifferentProcessInSameMode() throws {
 }
 
 private func testInstanceIPCDoesNotTerminateDifferentProcessInDifferentMode() throws {
-    let userInfo = PingPlaceInstanceIPC.terminationUserInfo(senderProcessID: 4242, launchMode: .menuPreview)
+    let userInfo = NotifyPointInstanceIPC.terminationUserInfo(senderProcessID: 4242, launchMode: .menuPreview)
     try assertEqual(
-        PingPlaceInstanceIPC.shouldTerminateInstance(
+        NotifyPointInstanceIPC.shouldTerminateInstance(
             currentProcessID: 9898,
             currentLaunchMode: .full,
             userInfo: userInfo
         ),
         false,
-        "regular PingPlace should ignore preview termination requests"
+        "regular NotifyPoint should ignore preview termination requests"
     )
 }
 
 private func testInstanceIPCDoesNotTerminateSmokeTestFromRegularInstance() throws {
-    let userInfo = PingPlaceInstanceIPC.terminationUserInfo(senderProcessID: 4242, launchMode: .smokeTest)
+    let userInfo = NotifyPointInstanceIPC.terminationUserInfo(senderProcessID: 4242, launchMode: .smokeTest)
     try assertEqual(
-        PingPlaceInstanceIPC.shouldTerminateInstance(
+        NotifyPointInstanceIPC.shouldTerminateInstance(
             currentProcessID: 9898,
             currentLaunchMode: .full,
             userInfo: userInfo
         ),
         false,
-        "regular PingPlace should ignore smoke-test termination requests"
+        "regular NotifyPoint should ignore smoke-test termination requests"
     )
 }
 
 private func testInstanceIPCDoesNotTerminateWhenUserInfoIsMalformed() throws {
     try assertEqual(
-        PingPlaceInstanceIPC.shouldTerminateInstance(
+        NotifyPointInstanceIPC.shouldTerminateInstance(
             currentProcessID: 9898,
             currentLaunchMode: .full,
             userInfo: [:]
