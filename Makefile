@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
-.PHONY: all build debug-build generate-build-info run test smoke-test smoke-test-check license-check license-fix check-build-deps check-smoke-test-deps clean publish save-codesign-identity clear-codesign-identity
+.PHONY: all build debug-build generate-build-info generate-icons run test smoke-test smoke-test-check license-check license-fix check-build-deps check-smoke-test-deps clean publish save-codesign-identity clear-codesign-identity
 
 all: build
 
@@ -100,6 +100,9 @@ generate-build-info:
 		"    static let buildTimestamp = \"$$BUILD_TIMESTAMP\"" \
 		"    static let sourceFingerprint = \"$$SOURCE_FINGERPRINT\"" \
 		'}' > "$(BUILD_INFO_SWIFT)"
+
+generate-icons:
+	jbang scripts/icons/GenerateIcons.java
 
 run:
 	@open NotifyPoint.app

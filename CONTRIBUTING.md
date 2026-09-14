@@ -12,11 +12,15 @@ Useful commands:
 make test
 make build
 make debug-build
+make generate-icons
 make license-check
 make license-fix
 ```
 
 The license targets require [LicenseOps](https://licenseops.github.io/docs/getting-started/) (`lops`).
+
+`make generate-icons` uses JBang to regenerate the app and menu-bar icons from
+`src/assets/icon.png`. The editable vector artwork is `src/assets/icon.svg`.
 
 Artifacts:
 

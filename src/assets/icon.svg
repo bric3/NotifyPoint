@@ -1,3 +1,81 @@
-<?xml version="1.0" standalone="no"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" x="0" y="0" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512" xml:space="preserve" class=""><g><path d="M256 512c30.692 0 57.122-18.539 68.719-45H187.281c11.597 26.461 38.028 45 68.719 45zM411 247.862V215c0-69.822-46.411-129.001-110-148.33V45c0-24.813-20.187-45-45-45s-45 20.187-45 45v21.67C147.41 85.999 101 145.177 101 215v32.862c0 61.332-23.378 119.488-65.827 163.756A14.999 14.999 0 0 0 46 437h420a15 15 0 0 0 10.827-25.382C434.378 367.35 411 309.193 411 247.862zM271 60.728c-4.937-.476-9.94-.728-15-.728s-10.063.252-15 .728V45c0-8.271 6.729-15 15-15s15 6.729 15 15zM451 215c0 8.284 6.716 15 15 15s15-6.716 15-15c0-60.1-23.404-116.603-65.901-159.1-5.857-5.857-15.355-5.858-21.213 0s-5.858 15.355 0 21.213C430.717 113.944 451 162.913 451 215zM46 230c8.284 0 15-6.716 15-15 0-52.086 20.284-101.055 57.114-137.886 5.858-5.858 5.858-15.355 0-21.213-5.857-5.858-15.355-5.858-21.213 0C54.404 98.398 31 154.9 31 215c0 8.284 6.716 15 15 15z" fill="#232323" opacity="1" data-original="#000000" class=""/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="background" x1="92" y1="48" x2="420" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2797ff"/>
+      <stop offset="0.48" stop-color="#0967ed"/>
+      <stop offset="1" stop-color="#063cc9"/>
+    </linearGradient>
+    <radialGradient id="backgroundGlow" cx="0" cy="0" r="1" gradientTransform="translate(256 92) rotate(90) scale(328)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#69c5ff" stop-opacity="0.52"/>
+      <stop offset="1" stop-color="#0060f2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="screen" x1="256" y1="238" x2="256" y2="401" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#062c77"/>
+      <stop offset="1" stop-color="#021b55"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="256" y1="249" x2="256" y2="387" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#248aff"/>
+      <stop offset="1" stop-color="#0861ec"/>
+    </linearGradient>
+    <linearGradient id="cell" x1="256" y1="255" x2="256" y2="379" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#95cfff"/>
+      <stop offset="1" stop-color="#4b91ef"/>
+    </linearGradient>
+    <linearGradient id="selected" x1="231" y1="300" x2="282" y2="342" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffb24b"/>
+      <stop offset="0.52" stop-color="#ff7445"/>
+      <stop offset="1" stop-color="#ff4e43"/>
+    </linearGradient>
+    <linearGradient id="card" x1="256" y1="96" x2="256" y2="230" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef5ff"/>
+    </linearGradient>
+    <linearGradient id="avatar" x1="151" y1="133" x2="190" y2="194" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffb143"/>
+      <stop offset="1" stop-color="#ff4e3e"/>
+    </linearGradient>
+    <linearGradient id="text" x1="216" y1="145" x2="356" y2="190" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8eb4f2"/>
+      <stop offset="1" stop-color="#6c95e4"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#00174f" flood-opacity="0.42"/>
+    </filter>
+    <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="190%">
+      <feDropShadow dx="0" dy="9" stdDeviation="12" flood-color="#003aa8" flood-opacity="0.32"/>
+    </filter>
+    <filter id="selectedGlow" x="-40%" y="-70%" width="180%" height="240%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#ff9b45" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#background)"/>
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#backgroundGlow)"/>
+  <rect x="30" y="30" width="452" height="452" rx="102" fill="none" stroke="#77c9ff" stroke-opacity="0.34" stroke-width="3"/>
+
+  <g filter="url(#shadow)">
+    <path d="M105 232 Q96 232 94 243 L73 393 Q71 408 87 408 H425 Q441 408 439 393 L418 243 Q416 232 407 232 Z" fill="url(#screen)" stroke="#b9ddff" stroke-width="3"/>
+    <path d="M107 246 H405 L423 391 H89 Z" fill="url(#panel)"/>
+
+    <g fill="url(#cell)" stroke="#d6edff" stroke-width="2">
+      <path d="M113 253 H202 Q207 253 206 259 L202 291 Q201 296 196 296 H106 Q101 296 102 291 L107 259 Q108 253 113 253 Z"/>
+      <path d="M216 253 H296 Q301 253 302 259 L305 291 Q306 296 301 296 H211 Q206 296 207 291 L210 259 Q211 253 216 253 Z"/>
+      <path d="M316 253 H399 Q404 253 405 259 L410 291 Q411 296 406 296 H316 Q311 296 310 291 L307 259 Q306 253 316 253 Z"/>
+      <path d="M105 304 H195 Q200 304 199 309 L196 337 Q195 342 190 342 H98 Q93 342 94 337 L98 309 Q99 304 105 304 Z"/>
+      <path d="M212 304 H300 Q305 304 306 309 L309 337 Q310 342 305 342 H207 Q202 342 203 337 L206 309 Q207 304 212 304 Z" fill="url(#selected)" filter="url(#selectedGlow)"/>
+      <path d="M317 304 H407 Q413 304 414 309 L418 337 Q419 342 414 342 H322 Q317 342 316 337 L313 309 Q312 304 317 304 Z"/>
+      <path d="M97 350 H189 Q194 350 193 355 L190 375 Q189 381 184 381 H91 Q85 381 86 375 L89 355 Q90 350 97 350 Z"/>
+      <path d="M205 350 H307 Q312 350 313 355 L315 375 Q316 381 310 381 H202 Q196 381 197 375 L199 355 Q200 350 205 350 Z"/>
+      <path d="M323 350 H415 Q422 350 423 375 Q424 381 418 381 H325 Q320 381 319 375 L316 355 Q315 350 323 350 Z"/>
+    </g>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <path d="M120 92 H392 Q408 92 418 102 Q428 112 428 128 V194 Q428 210 418 220 Q408 230 392 230 H289 L256 324 L223 230 H120 Q104 230 94 220 Q84 210 84 194 V128 Q84 112 94 102 Q104 92 120 92 Z" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.78" stroke-width="2"/>
+    <circle cx="161" cy="161" r="31" fill="url(#avatar)"/>
+    <rect x="216" y="139" width="157" height="18" rx="9" fill="url(#text)"/>
+    <rect x="216" y="174" width="116" height="17" rx="8.5" fill="url(#text)"/>
+  </g>
+</svg>

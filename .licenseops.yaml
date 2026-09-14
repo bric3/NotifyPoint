@@ -3,6 +3,9 @@
 license: GPL-3.0-only
 paths:
   - src
+  - scripts
   - tests
   - .github/workflows
   - Makefile
+exclude:
+  - '**/*.svg'
