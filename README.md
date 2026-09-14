@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+
 # PingPlace
 
 Control notification position on macOS.
@@ -69,8 +71,9 @@ Original app by [Wade Grimridge](https://github.com/NotWadeGrimridge/PingPlace).
 
 Fork and later evolutions by bric3.
 
-Original work © 2025 Wade Grimridge.
+Copyright © 2025 Wade Grimridge.
 
-Fork changes © 2026 bric3.
+Copyright © 2026 Brice Dutheil and Wojciech Gawinski.
 
-All rights reserved.
+This project is licensed under the GNU General Public License version 3 only.
+See [LICENSE](LICENSE).

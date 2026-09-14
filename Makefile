@@ -1,9 +1,12 @@
-.PHONY: all build debug-build generate-build-info run test smoke-test smoke-test-check check-build-deps check-smoke-test-deps clean publish save-codesign-identity clear-codesign-identity
+# SPDX-License-Identifier: GPL-3.0-only
+
+.PHONY: all build debug-build generate-build-info run test smoke-test smoke-test-check license-check license-fix check-build-deps check-smoke-test-deps clean publish save-codesign-identity clear-codesign-identity
 
 all: build
 
 CODESIGN_IDENTITY_FILE ?= .codesign_identity
 BUILD_INFO_SWIFT ?= .build/BuildInfo.generated.swift
+LICENSEOPS ?= lops
 BUILD_DEPENDENCIES = bash swiftc lipo codesign git shasum awk find date
 SMOKE_TEST_DEPENDENCIES = bash open alerter grep awk ps kill tail wc head make
 APP_SWIFT_SOURCES = $(sort $(wildcard src/*.swift)) $(BUILD_INFO_SWIFT)
@@ -58,6 +61,7 @@ build: check-build-deps
 	@mkdir -p PingPlace.app/Contents/MacOS
 	@mkdir -p PingPlace.app/Contents/Resources
 	@cp src/Info.plist PingPlace.app/Contents/
+	@cp LICENSE PingPlace.app/Contents/Resources/
 	@cp src/assets/app-icon/icon.icns PingPlace.app/Contents/Resources/
 	@cp src/assets/menu-bar-icon/MenuBarIcon*.png PingPlace.app/Contents/Resources/
 	swiftc $(APP_SWIFT_SOURCES) -o PingPlace.app/Contents/MacOS/PingPlace-x86_64 -O -target x86_64-apple-macos14.0
@@ -73,6 +77,7 @@ debug-build: check-build-deps
 	@mkdir -p PingPlace.app/Contents/MacOS
 	@mkdir -p PingPlace.app/Contents/Resources
 	@cp src/Info.plist PingPlace.app/Contents/
+	@cp LICENSE PingPlace.app/Contents/Resources/
 	@cp src/assets/app-icon/icon.icns PingPlace.app/Contents/Resources/
 	@cp src/assets/menu-bar-icon/MenuBarIcon*.png PingPlace.app/Contents/Resources/
 	swiftc $(APP_SWIFT_SOURCES) -o PingPlace.app/Contents/MacOS/PingPlace-x86_64 -Onone -g -D PINGPLACE_DEBUG_BUILD -target x86_64-apple-macos14.0
@@ -113,6 +118,12 @@ smoke-test: check-smoke-test-deps
 
 smoke-test-check:
 	@bash -n scripts/smoke-test-alerter.sh
+
+license-check:
+	$(LICENSEOPS) check
+
+license-fix:
+	$(LICENSEOPS) fix
 
 clean:
 	@rm -rf PingPlace.app PingPlace.app.tar.gz .build

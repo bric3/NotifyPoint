@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+
 # Contributing
 
 ## Development setup
@@ -10,7 +12,11 @@ Useful commands:
 make test
 make build
 make debug-build
+make license-check
+make license-fix
 ```
+
+The license targets require [LicenseOps](https://licenseops.github.io/docs/getting-started/) (`lops`).
 
 Artifacts:
 

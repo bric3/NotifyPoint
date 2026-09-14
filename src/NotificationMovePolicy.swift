@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 enum NotificationWindowCreatedMoveResult {
     case moved(needsSettleFollowUp: Bool)
     case noBannerContainer

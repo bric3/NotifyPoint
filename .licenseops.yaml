@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+license: GPL-3.0-only
+paths:
+  - src
+  - tests
+  - .github/workflows
+  - Makefile
+exclude:
+  - '**/*.svg'

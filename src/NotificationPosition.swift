@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 enum NotificationPosition: String, CaseIterable {
     case topLeft, topMiddle, topRight
     case middleLeft, deadCenter, middleRight
