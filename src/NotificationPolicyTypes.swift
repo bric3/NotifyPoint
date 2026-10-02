@@ -65,4 +65,12 @@ enum NotificationScanResult: Equatable {
     case movedNotification
     case noMovableCandidates
     case placeholderOnly
+    case retryNeeded
+
+    static func fromWindowCounts(moved: Int, failed: Int, nonMovable: Int, noBannerContainer: Int) -> Self {
+        if failed > 0 { return .retryNeeded }
+        if moved > 0 { return .movedNotification }
+        if nonMovable == 0, noBannerContainer > 0 { return .placeholderOnly }
+        return .noMovableCandidates
+    }
 }

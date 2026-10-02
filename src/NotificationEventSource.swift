@@ -10,28 +10,48 @@ protocol NotificationEventHandler: AnyObject {
     func sessionDidBecomeActive()
     func systemWillSleep()
     func systemDidWake()
+    func notificationEnvironmentDidBecomeAvailable(reason: String)
+    func screenLockChanged(isLocked: Bool)
 }
 
 final class NotificationEventSource {
     private let notificationCenterBundleID: String
     private weak var handler: NotificationEventHandler?
     private let log: (String) -> Void
+    private let workspaceNotificationCenter: NotificationCenter
+    private let screenLockNotificationCenter: NotificationCenter
 
     private var axObserver: AXObserver?
+    private var observedPID: pid_t?
+    private var nextObserverCheck: Date = .distantPast
+    private var lastObserverFailure: String?
+    private var lastWindowCreatedAt: Date?
     private var widgetMonitorTimer: Timer?
     private var screenParametersObserver: NSObjectProtocol?
     private var sessionDidBecomeActiveObserver: NSObjectProtocol?
     private var willSleepObserver: NSObjectProtocol?
     private var didWakeObserver: NSObjectProtocol?
+    private var screensDidWakeObserver: NSObjectProtocol?
+    private var screenLockObservers: [NSObjectProtocol] = []
+
+    var diagnosticSummary: String {
+        "observerPID=\(observedPID.map(String.init) ?? "none"), " +
+            "lastWindowCreated=\(lastWindowCreatedAt.map { String(describing: $0) } ?? "none"), " +
+            "trusted=\(AXIsProcessTrusted())"
+    }
 
     init(
         notificationCenterBundleID: String,
         handler: NotificationEventHandler,
-        log: @escaping (String) -> Void
+        log: @escaping (String) -> Void,
+        workspaceNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        screenLockNotificationCenter: NotificationCenter = DistributedNotificationCenter.default()
     ) {
         self.notificationCenterBundleID = notificationCenterBundleID
         self.handler = handler
         self.log = log
+        self.workspaceNotificationCenter = workspaceNotificationCenter
+        self.screenLockNotificationCenter = screenLockNotificationCenter
     }
 
     deinit {
@@ -39,11 +59,12 @@ final class NotificationEventSource {
     }
 
     func start() {
-        setupAXObserver()
+        ensureAXObserver()
         setupWidgetMonitor()
         setupScreenChangeObserver()
         setupSessionActivityObservers()
         setupSleepWakeObservers()
+        setupScreenLockObservers()
     }
 
     func stop() {
@@ -55,7 +76,6 @@ final class NotificationEventSource {
             self.screenParametersObserver = nil
         }
 
-        let workspaceNotificationCenter = NSWorkspace.shared.notificationCenter
         if let sessionDidBecomeActiveObserver {
             workspaceNotificationCenter.removeObserver(sessionDidBecomeActiveObserver)
             self.sessionDidBecomeActiveObserver = nil
@@ -68,35 +88,82 @@ final class NotificationEventSource {
             workspaceNotificationCenter.removeObserver(didWakeObserver)
             self.didWakeObserver = nil
         }
+        if let screensDidWakeObserver {
+            workspaceNotificationCenter.removeObserver(screensDidWakeObserver)
+            self.screensDidWakeObserver = nil
+        }
+        for observer in screenLockObservers {
+            screenLockNotificationCenter.removeObserver(observer)
+        }
+        screenLockObservers.removeAll()
 
-        axObserver = nil
+        removeAXObserver()
     }
 
-    private func setupAXObserver() {
-        guard let pid = notificationCenterProcessIdentifier() else {
-            log("Failed to setup observer - Notification Center not found")
-            return
+    private func removeAXObserver() {
+        if let axObserver {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(axObserver), .commonModes)
+        }
+        axObserver = nil
+        observedPID = nil
+    }
+
+    // Reuse the existing monitor; retry a missing observer at most every five seconds.
+    @discardableResult
+    func ensureAXObserver(force: Bool = false) -> Bool {
+        guard force || Date() >= nextObserverCheck else { return false }
+        nextObserverCheck = Date().addingTimeInterval(5)
+        let pid = notificationCenterProcessIdentifier()
+        let trusted = AXIsProcessTrusted()
+        if !force, trusted, let pid, observedPID == pid, axObserver != nil {
+            return false
+        }
+
+        if observedPID != nil {
+            log("Removing Notification Center observer: \(diagnosticSummary), currentPID=\(pid.map(String.init) ?? "none"), forced=\(force)")
+        }
+        removeAXObserver()
+        guard trusted, let pid else {
+            reportObserverFailure("Notification Center observer unavailable: pid=\(pid.map(String.init) ?? "none"), trusted=\(trusted)")
+            return false
         }
 
         let app = AXUIElementCreateApplication(pid)
         var observer: AXObserver?
-        AXObserverCreate(pid, eventSourceObserverCallback, &observer)
-        guard let observer else {
-            log("Failed to setup observer - AXObserverCreate returned nil")
-            return
+        let createError = AXObserverCreate(pid, eventSourceObserverCallback, &observer)
+        guard createError == .success, let observer else {
+            reportObserverFailure("AXObserverCreate failed: pid=\(pid), error=\(createError.diagnosticSummary), trusted=\(trusted)")
+            return false
         }
 
-        axObserver = observer
         let context = Unmanaged.passUnretained(self).toOpaque()
-        AXObserverAddNotification(observer, app, kAXWindowCreatedNotification as CFString, context)
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        let addError = AXObserverAddNotification(observer, app, kAXWindowCreatedNotification as CFString, context)
+        guard addError == .success else {
+            reportObserverFailure("AXObserverAddNotification failed: pid=\(pid), error=\(addError.diagnosticSummary), trusted=\(trusted)")
+            return false
+        }
+        axObserver = observer
+        observedPID = pid
+        lastWindowCreatedAt = nil
+        lastObserverFailure = nil
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
 
         log("Observer setup complete for Notification Center (PID: \(pid))")
+        return true
+    }
+
+    private func reportObserverFailure(_ message: String) {
+        if lastObserverFailure != message { log(message) }
+        lastObserverFailure = message
     }
 
     private func setupWidgetMonitor() {
         widgetMonitorTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            self?.handler?.notificationCenterStateMonitorTick()
+            guard let self else { return }
+            if self.ensureAXObserver() {
+                self.handler?.notificationEnvironmentDidBecomeAvailable(reason: "notificationCenterObserverRestored")
+            }
+            self.handler?.notificationCenterStateMonitorTick()
         }
     }
 
@@ -111,7 +178,6 @@ final class NotificationEventSource {
     }
 
     private func setupSleepWakeObservers() {
-        let workspaceNotificationCenter = NSWorkspace.shared.notificationCenter
         willSleepObserver = workspaceNotificationCenter.addObserver(
             forName: NSWorkspace.willSleepNotification,
             object: nil,
@@ -125,17 +191,40 @@ final class NotificationEventSource {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.ensureAXObserver(force: true)
             self?.handler?.systemDidWake()
+        }
+
+        screensDidWakeObserver = workspaceNotificationCenter.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.ensureAXObserver(force: true)
+            self?.handler?.notificationEnvironmentDidBecomeAvailable(reason: "screensDidWakeNotification")
+        }
+    }
+
+    private func setupScreenLockObservers() {
+        // These distributed names are undocumented. Keep workspace wake/session recovery too.
+        for (name, isLocked) in [("com.apple.screenIsLocked", true), ("com.apple.screenIsUnlocked", false)] {
+            let observer = screenLockNotificationCenter.addObserver(
+                forName: Notification.Name(name), object: nil, queue: .main
+            ) { [weak self] _ in
+                if !isLocked { self?.ensureAXObserver(force: true) }
+                self?.handler?.screenLockChanged(isLocked: isLocked)
+            }
+            screenLockObservers.append(observer)
         }
     }
 
     private func setupSessionActivityObservers() {
-        let workspaceNotificationCenter = NSWorkspace.shared.notificationCenter
         sessionDidBecomeActiveObserver = workspaceNotificationCenter.addObserver(
             forName: NSWorkspace.sessionDidBecomeActiveNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.ensureAXObserver(force: true)
             self?.handler?.sessionDidBecomeActive()
         }
     }
@@ -147,6 +236,10 @@ final class NotificationEventSource {
     }
 
     fileprivate func handleAXWindowCreated(_ element: AXUIElement) {
+        lastWindowCreatedAt = Date()
+        var pid: pid_t = 0
+        let error = AXUIElementGetPid(element, &pid)
+        log("AXWindowCreated received: elementPID=\(pid), pidError=\(error.diagnosticSummary), \(diagnosticSummary)")
         handler?.notificationCenterWindowCreated(element)
     }
 }

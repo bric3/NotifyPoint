@@ -2,6 +2,8 @@
 
 import CoreGraphics
 import Foundation
+import Cocoa
+import ApplicationServices
 
 enum TestFailure: Error {
     case assertionFailed(String)
@@ -80,9 +82,11 @@ private final class TestScheduledAction: ScheduledNotificationAction {
 
 private final class TestScheduler: NotificationScheduler {
     private(set) var scheduledActions: [TestScheduledAction] = []
+    private(set) var scheduledIntervals: [TimeInterval] = []
 
     @discardableResult
-    func schedule(after _: TimeInterval, _ action: @escaping () -> Void) -> ScheduledNotificationAction {
+    func schedule(after interval: TimeInterval, _ action: @escaping () -> Void) -> ScheduledNotificationAction {
+        scheduledIntervals.append(interval)
         let scheduled = TestScheduledAction(action: action)
         scheduledActions.append(scheduled)
         return scheduled
@@ -817,9 +821,9 @@ private func testRecoveryRetryActionStopsAtAttemptLimit() throws {
     )
 }
 
-private func testPlaceholderFollowUpActionRetriesOnlyForPlaceholderResults() throws {
+private func testRecoveryFollowUpActionRetriesPlaceholdersAndFailures() throws {
     try assertEqual(
-        NotificationCenterStatePolicy.placeholderFollowUpAction(
+        NotificationCenterStatePolicy.recoveryFollowUpAction(
             scanResult: .placeholderOnly,
             attemptNumber: 0,
             maxAttempts: 3
@@ -829,13 +833,18 @@ private func testPlaceholderFollowUpActionRetriesOnlyForPlaceholderResults() thr
     )
 
     try assertEqual(
-        NotificationCenterStatePolicy.placeholderFollowUpAction(
+        NotificationCenterStatePolicy.recoveryFollowUpAction(
             scanResult: .noMovableCandidates,
             attemptNumber: 0,
             maxAttempts: 3
         ),
         .stop,
         "placeholder follow-up should not run for ordinary misses"
+    )
+    try assertEqual(
+        NotificationCenterStatePolicy.recoveryFollowUpAction(scanResult: .retryNeeded, attemptNumber: 0, maxAttempts: 3),
+        .retry,
+        "Accessibility failures should also get slow recovery"
     )
 }
 
@@ -1404,6 +1413,121 @@ private func testControllerPlaceholderFollowUpStopsAfterSuccess() throws {
         "controller should stop placeholder follow-up after the first successful move"
     )
     try assertEqual(scheduler.scheduledActions.count, 0, "successful placeholder follow-up should stop further polling")
+}
+
+private func testMoveVerificationRequiresPositionReadback() throws {
+    let target = CGPoint(x: 400, y: 300)
+    try assertTrue(!NotificationMovePolicy.isPositionVerified(actual: nil, target: target), "missing readback must not report a move")
+    try assertTrue(!NotificationMovePolicy.isPositionVerified(actual: .zero, target: target), "an unchanged window away from the target must fail")
+    try assertTrue(!NotificationMovePolicy.isPositionVerified(actual: CGPoint(x: 400, y: 302), target: target), "both coordinates must match")
+    try assertTrue(!NotificationMovePolicy.isPositionVerified(actual: CGPoint(x: CGFloat.nan, y: 300), target: target), "invalid coordinates must fail")
+    try assertTrue(NotificationMovePolicy.isPositionVerified(actual: target, target: target), "matching readback verifies the move")
+    try assertTrue(NotificationMovePolicy.isPositionVerified(actual: CGPoint(x: 401, y: 299), target: target), "one point of rounding is allowed")
+    try assertTrue(NotificationMovePolicy.shouldScheduleSettleFollowUp(windowCreatedMoveResult: .moveFailed), "failed moves need a settle retry")
+}
+
+private final class TestEventHandler: NotificationEventHandler {
+    var events: [String] = []
+    func notificationCenterWindowCreated(_: AXUIElement) { events.append("windowCreated") }
+    func notificationCenterStateMonitorTick() {}
+    func screenParametersChanged() { events.append("screenParametersChanged") }
+    func sessionDidBecomeActive() { events.append("sessionDidBecomeActive") }
+    func systemWillSleep() { events.append("systemWillSleep") }
+    func systemDidWake() { events.append("systemDidWake") }
+    func notificationEnvironmentDidBecomeAvailable(reason: String) { events.append(reason) }
+    func screenLockChanged(isLocked: Bool) { events.append(isLocked ? "locked" : "unlocked") }
+}
+
+private func testEventSourceRoutesLifecycleEventsAndRemovesObservers() throws {
+    let workspace = NotificationCenter()
+    let lock = NotificationCenter()
+    let handler = TestEventHandler()
+    var logs: [String] = []
+    let source = NotificationEventSource(
+        notificationCenterBundleID: "io.github.bric3.notifypoint.missing-test-process",
+        handler: handler,
+        log: { logs.append($0) },
+        workspaceNotificationCenter: workspace,
+        screenLockNotificationCenter: lock
+    )
+    source.start()
+    defer { source.stop() }
+    workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+    workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+    workspace.post(name: NSWorkspace.screensDidWakeNotification, object: nil)
+    workspace.post(name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+    lock.post(name: Notification.Name("com.apple.screenIsLocked"), object: nil)
+    lock.post(name: Notification.Name("com.apple.screenIsUnlocked"), object: nil)
+    let expected = ["systemWillSleep", "systemDidWake", "screensDidWakeNotification", "sessionDidBecomeActive", "locked", "unlocked"]
+    try assertEqual(handler.events, expected, "wake and unlock must reach recovery even while Notification Center is unavailable")
+    try assertEqual(logs.count, 1, "repeated missing-process observer failures must not flood the log")
+    try assertTrue(logs[0].contains("pid=none"), "missing-process diagnostics must identify the unavailable PID")
+    source.stop()
+    workspace.post(name: NSWorkspace.didWakeNotification, object: nil)
+    workspace.post(name: NSWorkspace.screensDidWakeNotification, object: nil)
+    lock.post(name: Notification.Name("com.apple.screenIsUnlocked"), object: nil)
+    try assertEqual(handler.events, expected, "stopped event sources must not retain wake/unlock observers")
+}
+
+private func testScanKeepsRetryingWhenOnlySomeMovesSucceed() throws {
+    try assertEqual(NotificationScanResult.fromWindowCounts(moved: 1, failed: 1, nonMovable: 0, noBannerContainer: 0), .retryNeeded, "one successful move must not hide a failed move")
+    try assertEqual(NotificationScanResult.fromWindowCounts(moved: 0, failed: 1, nonMovable: 0, noBannerContainer: 0), .retryNeeded, "a failed move needs recovery")
+    try assertEqual(NotificationScanResult.fromWindowCounts(moved: 1, failed: 0, nonMovable: 0, noBannerContainer: 2), .movedNotification, "unrelated placeholder windows do not prevent success")
+    try assertEqual(NotificationScanResult.fromWindowCounts(moved: 0, failed: 0, nonMovable: 0, noBannerContainer: 2), .placeholderOnly, "placeholders retain slow recovery")
+    try assertEqual(NotificationScanResult.fromWindowCounts(moved: 0, failed: 0, nonMovable: 0, noBannerContainer: 0), .noMovableCandidates, "an empty successful scan is not an Accessibility failure")
+}
+
+private func testControllerRecoversFromAccessibilityFailureAfterFastRetries() throws {
+    let delegate = TestControllerDelegate()
+    delegate.moveScanResults = [.retryNeeded, .retryNeeded, .retryNeeded, .retryNeeded, .movedNotification]
+    let scheduler = TestScheduler()
+    let controller = NotificationController(delegate: delegate, scheduler: scheduler, recoveryRetryInterval: 0.5, recoveryRetryLimit: 2)
+    controller.handleWake()
+    for _ in 0..<4 { scheduler.runNext() }
+    try assertEqual(scheduler.scheduledIntervals, [0.5, 0.5, 30, 30], "unavailable Accessibility should back off after fast retries")
+    try assertEqual(delegate.moveReasons.last, "didWakeNotification-followup2", "slow recovery should survive repeated read failures")
+    try assertEqual(scheduler.scheduledActions.count, 0, "verified success should end recovery")
+}
+
+private func testControllerBoundsAccessibilityFailureFollowUps() throws {
+    let delegate = TestControllerDelegate()
+    delegate.moveScanResults = Array(repeating: .retryNeeded, count: 5)
+    let scheduler = TestScheduler()
+    let controller = NotificationController(delegate: delegate, scheduler: scheduler, recoveryRetryInterval: 0.5, recoveryRetryLimit: 2, placeholderFollowUpInterval: 30, placeholderFollowUpLimit: 2)
+    controller.handleWake()
+    for _ in 0..<5 { scheduler.runNext() }
+    try assertEqual(delegate.moveReasons.count, 5, "persistent failure must respect both retry limits")
+    try assertEqual(scheduler.scheduledActions.count, 0, "slow failure retries must eventually stop")
+    try assertTrue(delegate.loggedMessages.contains { $0.contains("Recovery follow-up window exhausted") }, "exhaustion must be visible in the log")
+}
+
+private func testControllerEscalatesUnverifiedSettleMovesToRecovery() throws {
+    let delegate = TestControllerDelegate()
+    delegate.moveScanResults = [.retryNeeded, .retryNeeded, .movedNotification]
+    let scheduler = TestScheduler()
+    let controller = NotificationController(delegate: delegate, scheduler: scheduler, recoveryRetryInterval: 0.5, recoveryRetryLimit: 2)
+    controller.handleNotificationWindowCreated(needsSettleFollowUp: true)
+    for _ in 0..<3 { scheduler.runNext() }
+    try assertEqual(delegate.moveReasons, ["notificationWindowCreated-settle1", "notificationWindowCreated-settle2", "notificationWindowCreated-retry1"], "failed settle moves must enter normal recovery without another immediate scan")
+    try assertEqual(scheduler.scheduledIntervals, [0.2, 0.6, 0.5], "settle recovery should use the existing retry interval")
+    try assertEqual(scheduler.scheduledActions.count, 0, "recovery should stop after a verified move")
+}
+
+private func testControllerRestartsRecoveryOnUnlockAndObserverRestoration() throws {
+    for reason in ["screenUnlocked", "notificationCenterObserverRestored", "screensDidWakeNotification"] {
+        let delegate = TestControllerDelegate()
+        delegate.moveScanResults = [.retryNeeded, .movedNotification]
+        let scheduler = TestScheduler()
+        let controller = NotificationController(delegate: delegate, scheduler: scheduler, recoveryRetryInterval: 0.5, recoveryRetryLimit: 2)
+        controller.handleWake()
+        controller.handleNotificationWindowCreated(needsSettleFollowUp: true)
+        controller.handleEnvironmentRecovery(reason: reason)
+        scheduler.runNext()
+        scheduler.runNext()
+        try assertEqual(delegate.clearCacheCallCount, 2, "environment recovery must discard stale geometry")
+        try assertEqual(delegate.moveReasons, ["didWakeNotification", reason], "a fresh recovery must cancel the older retry")
+        try assertEqual(scheduler.scheduledActions.count, 0, "old retries must not survive environment recovery")
+    }
 }
 
 private func testPlacementEngineInitializesCacheAndComputesMovePlan() throws {
@@ -1992,7 +2116,7 @@ struct NotificationBehaviorTestRunner {
             ("recovery retries when attempts remain", testRecoveryRetryActionRetriesWhenNoMoveAndAttemptsRemain),
             ("recovery stops after successful move", testRecoveryRetryActionStopsAfterSuccessfulMove),
             ("recovery stops at attempt limit", testRecoveryRetryActionStopsAtAttemptLimit),
-            ("placeholder follow-up retries only for placeholder results", testPlaceholderFollowUpActionRetriesOnlyForPlaceholderResults),
+            ("recovery follow-up retries placeholders and failures", testRecoveryFollowUpActionRetriesPlaceholdersAndFailures),
             ("iterative traversal finds node in cyclic graph", testFirstMatchingNodeFindsNodeInCyclicGraph),
             ("iterative traversal handles deep graph", testFirstMatchingNodeHandlesDeepGraphWithoutRecursion),
             ("iterative traversal returns nil when no match exists", testFirstMatchingNodeReturnsNilWhenNoMatchExists),
@@ -2018,6 +2142,13 @@ struct NotificationBehaviorTestRunner {
             ("controller keeps retrying for delayed session activation notifications", testControllerKeepsRetryingLongEnoughForDelayedSessionActivationNotifications),
             ("controller schedules placeholder follow-up after retry exhaustion", testControllerSchedulesPlaceholderFollowUpAfterRetryExhaustion),
             ("controller placeholder follow-up stops after success", testControllerPlaceholderFollowUpStopsAfterSuccess),
+            ("move verification requires position readback", testMoveVerificationRequiresPositionReadback),
+            ("event source routes lifecycle events and removes observers", testEventSourceRoutesLifecycleEventsAndRemovesObservers),
+            ("scan retries partial move failures", testScanKeepsRetryingWhenOnlySomeMovesSucceed),
+            ("controller recovers Accessibility after fast retries", testControllerRecoversFromAccessibilityFailureAfterFastRetries),
+            ("controller bounds Accessibility failure follow-ups", testControllerBoundsAccessibilityFailureFollowUps),
+            ("controller escalates unverified settle moves", testControllerEscalatesUnverifiedSettleMovesToRecovery),
+            ("controller restarts recovery on unlock and observer restoration", testControllerRestartsRecoveryOnUnlockAndObserverRestoration),
             ("placement engine initializes cache and computes move plan", testPlacementEngineInitializesCacheAndComputesMovePlan),
             ("placement engine uses built-in display as reference when requested", testPlacementEngineUsesBuiltInDisplayAsReferenceWhenRequested),
             ("placement engine resets cached geometry when display target changes", testPlacementEngineResetsCachedGeometryWhenDisplayTargetChanges),

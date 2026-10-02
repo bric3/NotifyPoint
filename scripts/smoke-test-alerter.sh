@@ -48,7 +48,7 @@ require_command() {
 
 regular_instances() {
   ps -axo pid=,command= | awk '
-    index($0, "/NotifyPoint.app/Contents/MacOS/NotifyPoint") > 0 &&
+    /\/NotifyPoint[.]app\/Contents\/MacOS\/NotifyPoint/ &&
     index($0, "--menu-preview") == 0 &&
     index($0, "--smoke-test") == 0 {
       print
@@ -70,7 +70,7 @@ first_regular_app_bundle_path() {
 
 smoke_test_instances() {
   ps -axo pid=,command= | awk '
-    index($0, "/NotifyPoint.app/Contents/MacOS/NotifyPoint") > 0 &&
+    /\/NotifyPoint[.]app\/Contents\/MacOS\/NotifyPoint/ &&
     index($0, "--smoke-test") > 0 {
       print
     }
@@ -191,7 +191,7 @@ stop_regular_instances_if_needed() {
   while IFS= read -r instance; do
     [[ -z "$instance" ]] && continue
     local pid
-    pid="${instance%% *}"
+    read -r pid _ <<< "$instance"
     kill "$pid"
   done <<< "$instances"
 
@@ -218,7 +218,7 @@ stop_smoke_test_instances() {
   while IFS= read -r instance; do
     [[ -z "$instance" ]] && continue
     local pid
-    pid="${instance%% *}"
+    read -r pid _ <<< "$instance"
     kill "$pid" 2>/dev/null || true
   done <<< "$instances"
 

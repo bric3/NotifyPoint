@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+import CoreGraphics
+
 enum NotificationWindowCreatedMoveResult {
     case moved(needsSettleFollowUp: Bool)
+    case moveFailed
     case noBannerContainer
     case nonMovableCandidate
 }
 
 enum NotificationMovePolicy {
+    static func isPositionVerified(actual: CGPoint?, target: CGPoint) -> Bool {
+        guard let actual else { return false }
+        return abs(actual.x - target.x) <= 1 && abs(actual.y - target.y) <= 1
+    }
+
     static func cacheIdentifier(windowIdentifier: String?, notificationIdentifier: String?) -> String? {
         notificationIdentifier ?? windowIdentifier
     }
@@ -15,7 +23,7 @@ enum NotificationMovePolicy {
         switch windowCreatedMoveResult {
         case let .moved(needsSettleFollowUp):
             return needsSettleFollowUp
-        case .noBannerContainer:
+        case .noBannerContainer, .moveFailed:
             return true
         case .nonMovableCandidate:
             return false

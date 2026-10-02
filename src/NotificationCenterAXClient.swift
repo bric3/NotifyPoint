@@ -30,7 +30,7 @@ enum NotificationCenterAXTraversalPolicy {
 
 protocol NotificationCenterAXClient {
     func notificationCenterProcessIdentifier(bundleID: String) -> pid_t?
-    func notificationWindows(pid: pid_t) -> [AXUIElement]?
+    func notificationWindows(pid: pid_t) -> (windows: [AXUIElement]?, error: AXError)
     func windowIdentifier(_ element: AXUIElement) -> String?
     func isFocused(_ element: AXUIElement) -> Bool
     func position(of element: AXUIElement) -> CGPoint?
@@ -48,20 +48,26 @@ protocol NotificationCenterAXClient {
 }
 
 struct SystemNotificationCenterAXClient: NotificationCenterAXClient {
+    var log: (String) -> Void = { _ in }
+
     func notificationCenterProcessIdentifier(bundleID: String) -> pid_t? {
         NSWorkspace.shared.runningApplications.first(where: {
             $0.bundleIdentifier == bundleID
         })?.processIdentifier
     }
 
-    func notificationWindows(pid: pid_t) -> [AXUIElement]? {
+    func notificationWindows(pid: pid_t) -> (windows: [AXUIElement]?, error: AXError) {
         let app = AXUIElementCreateApplication(pid)
         var windowsRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
-              let windows = windowsRef as? [AXUIElement] else {
-            return nil
+        let error = AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef)
+        guard error == .success else {
+            return (nil, error)
         }
-        return windows
+        guard let windows = windowsRef as? [AXUIElement] else {
+            log("AXWindows returned an unexpected value type (pid=\(pid)).")
+            return (nil, .failure)
+        }
+        return (windows, .success)
     }
 
     func windowIdentifier(_ element: AXUIElement) -> String? {
@@ -83,8 +89,13 @@ struct SystemNotificationCenterAXClient: NotificationCenterAXClient {
 
     func position(of element: AXUIElement) -> CGPoint? {
         var positionValue: AnyObject?
-        AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue)
+        let error = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue)
+        guard error == .success else {
+            log("AXPosition read failed: \(error.diagnosticSummary), trusted=\(AXIsProcessTrusted())")
+            return nil
+        }
         guard let posVal = positionValue,
+              CFGetTypeID(posVal) == AXValueGetTypeID(),
               AXValueGetType(posVal as! AXValue) == .cgPoint else {
             return nil
         }
@@ -95,8 +106,13 @@ struct SystemNotificationCenterAXClient: NotificationCenterAXClient {
 
     func size(of element: AXUIElement) -> CGSize? {
         var sizeValue: AnyObject?
-        AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
+        let error = AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
+        guard error == .success else {
+            log("AXSize read failed: \(error.diagnosticSummary), trusted=\(AXIsProcessTrusted())")
+            return nil
+        }
         guard let sizeVal = sizeValue,
+              CFGetTypeID(sizeVal) == AXValueGetTypeID(),
               AXValueGetType(sizeVal as! AXValue) == .cgSize else {
             return nil
         }
@@ -272,5 +288,26 @@ struct SystemNotificationCenterAXClient: NotificationCenterAXClient {
             return []
         }
         return attributeNames
+    }
+}
+
+extension AXError {
+    var diagnosticSummary: String {
+        let name: String
+        switch self {
+        case .success: name = "success"
+        case .failure: name = "failure"
+        case .illegalArgument: name = "illegalArgument"
+        case .invalidUIElement: name = "invalidUIElement"
+        case .invalidUIElementObserver: name = "invalidUIElementObserver"
+        case .cannotComplete: name = "cannotComplete"
+        case .attributeUnsupported: name = "attributeUnsupported"
+        case .notificationUnsupported: name = "notificationUnsupported"
+        case .notificationAlreadyRegistered: name = "notificationAlreadyRegistered"
+        case .apiDisabled: name = "apiDisabled"
+        case .noValue: name = "noValue"
+        default: name = "AXError"
+        }
+        return "\(name)(\(rawValue))"
     }
 }

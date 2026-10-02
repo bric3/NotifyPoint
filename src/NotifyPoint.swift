@@ -119,7 +119,10 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         handler: self,
         log: { [weak self] in self?.debugLog($0) }
     )
-    private let axClient: NotificationCenterAXClient = SystemNotificationCenterAXClient()
+    private lazy var axClient: NotificationCenterAXClient = SystemNotificationCenterAXClient(
+        log: { [weak self] in self?.debugLog($0) }
+    )
+    private var notificationWindowReadFailed = false
     private let placementEngine = NotificationWindowPlacementEngine(paddingAboveDock: 30)
 
     func debugLog(_ message: String) {
@@ -141,6 +144,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             debugLog("Debug mode enabled. Writing trace file to: \(debugLogPath)")
         }
         debugLog("Application launched. \(buildIdentitySummary())")
+        debugLog("Runtime: pid=\(ProcessInfo.processInfo.processIdentifier), os=\(ProcessInfo.processInfo.operatingSystemVersionString), trusted=\(AXIsProcessTrusted()), position=\(currentPosition.rawValue), displayTarget=\(currentDisplayTarget.rawValue)")
         switch runtimeConfiguration.settingsSource {
         case let .suite(name):
             debugLog("Using settings suite: \(name)")
@@ -176,6 +180,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     }
 
     func applicationWillTerminate(_: Notification) {
+        controller.invalidate()
+        eventSource.stop()
         if let instanceTerminationObserver {
             DistributedNotificationCenter.default().removeObserver(instanceTerminationObserver)
             self.instanceTerminationObserver = nil
@@ -374,6 +380,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     }
 
     @objc private func rerunDetection(_: NSMenuItem) {
+        eventSource.ensureAXObserver(force: true)
         controller.handleManualDetectionRerun()
     }
 
@@ -471,6 +478,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
 
     private enum WindowMoveResult {
         case moved(needsSettleFollowUp: Bool)
+        case moveFailed
         case noBannerContainer
         case nonMovableCandidate
     }
@@ -610,17 +618,17 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             let bannerMoveResult = axClient.setPosition(resolvedBannerContainer, point: plan.targetBannerPosition)
             var postMoveRootPosition = axClient.position(of: window)
             var postMoveBannerPosition = axClient.position(of: resolvedBannerContainer)
-            let bannerMoveApplied = bannerMoveResult == .success &&
-                postMoveBannerPosition.map { bannerPosition in
-                    abs(bannerPosition.x - plan.targetBannerPosition.x) < 1 &&
-                    abs(bannerPosition.y - plan.targetBannerPosition.y) < 1
-                } == true
+            let bannerMoveApplied = bannerMoveResult == .success && NotificationMovePolicy.isPositionVerified(
+                actual: postMoveBannerPosition, target: plan.targetBannerPosition
+            )
+            debugLog("Banner position write: error=\(bannerMoveResult.diagnosticSummary), verified=\(bannerMoveApplied)")
 
             if bannerMoveApplied {
                 movedElementSummary = "banner"
             } else {
                 let fallbackReason = "banner:\(bannerMoveResult.rawValue)"
-                _ = axClient.setPosition(window, point: plan.targetPosition)
+                let rootMoveResult = axClient.setPosition(window, point: plan.targetPosition)
+                debugLog("Root position write: error=\(rootMoveResult.diagnosticSummary)")
                 postMoveRootPosition = axClient.position(of: window)
                 postMoveBannerPosition = axClient.position(of: resolvedBannerContainer)
                 movedElementSummary = "root(fallback:\(fallbackReason))"
@@ -628,9 +636,9 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
                 if let currentRootPosition = postMoveRootPosition,
                    let currentBannerPosition = postMoveBannerPosition
                 {
-                    let needsCorrection =
-                        abs(currentBannerPosition.x - plan.targetBannerPosition.x) > 1 ||
-                        abs(currentBannerPosition.y - plan.targetBannerPosition.y) > 1
+                    let needsCorrection = !NotificationMovePolicy.isPositionVerified(
+                        actual: currentBannerPosition, target: plan.targetBannerPosition
+                    )
 
                     if needsCorrection {
                         let correctedRootPosition = NotificationGeometry.correctedRootPosition(
@@ -645,7 +653,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
                                 "targetBanner=\(pointSummary(plan.targetBannerPosition)), " +
                                 "correctedRoot=\(pointSummary(correctedRootPosition))"
                         )
-                        _ = axClient.setPosition(window, point: correctedRootPosition)
+                        let correctionResult = axClient.setPosition(window, point: correctedRootPosition)
+                        debugLog("Root correction write: error=\(correctionResult.diagnosticSummary)")
                         postMoveRootPosition = axClient.position(of: window)
                         postMoveBannerPosition = axClient.position(of: resolvedBannerContainer)
                         movedElementSummary += "+corrected"
@@ -659,9 +668,13 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             let rootFrameAfterMove = postMoveRootPosition.map {
                 CGRect(origin: $0, size: resolvedWindowSize)
             }
-            controller.noteNotificationMoved()
+            let positionVerified = NotificationMovePolicy.isPositionVerified(
+                actual: postMoveBannerPosition, target: plan.targetBannerPosition
+            )
             debugLog(
                 "Post-move verification: " +
+                    "positionVerified=\(positionVerified), " +
+                    "targetBannerPos=\(pointSummary(plan.targetBannerPosition)), " +
                     "movedElement=\(movedElementSummary), " +
                     "rootFrameBefore=\(optionalRectSummary(rootFrameBeforeMove)), " +
                     "rootFrameAfter=\(optionalRectSummary(rootFrameAfterMove)), " +
@@ -669,37 +682,46 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
                     "bannerPos=\(optionalPointSummary(postMoveBannerPosition)), " +
                     "bannerWithinReferenceScreen=\(bannerWithinReferenceScreen)"
             )
+            guard positionVerified else {
+                debugLog("Notification move unverified; retry needed. \(eventSource.diagnosticSummary)")
+                return .moveFailed
+            }
+            controller.noteNotificationMoved()
             debugLog(
                 "Moved notification to \(currentPosition.displayName) at (\(newPosition.x), \(newPosition.y)) " +
                     "from root=\(windowFingerprint(window: window, identifier: windowIdentifier, focused: focusedWindow, windowSize: resolvedWindowSize, notifPosition: windowPosition)), " +
                     "banner=\(elementFingerprint(resolvedBannerContainer, identifier: bannerIdentifier, focused: bannerFocused, size: resolvedNotifSize, position: resolvedPosition)), " +
                     "referenceScreen=\(screenSummary(from: plan.referenceScreen))"
             )
-            let needsSettleFollowUp = postMoveBannerPosition.map {
-                abs($0.x - plan.targetBannerPosition.x) > 1 ||
-                    abs($0.y - plan.targetBannerPosition.y) > 1
-            } ?? true
-            return .moved(needsSettleFollowUp: needsSettleFollowUp)
+            return .moved(needsSettleFollowUp: false)
         }
     }
 
     @discardableResult
     func moveAllNotifications(reason: String = "manual") -> NotificationScanResult {
+        eventSource.ensureAXObserver()
         guard let pid = axClient.notificationCenterProcessIdentifier(bundleID: notificationCenterBundleID) else {
-            debugLog("Cannot find Notification Center process")
-            return .noMovableCandidates
+            debugLog("Cannot find Notification Center process (\(reason)). \(eventSource.diagnosticSummary)")
+            return .retryNeeded
         }
-        debugLog("moveAllNotifications triggered (\(reason)). \(screenTopologySummary())")
+        debugLog("moveAllNotifications triggered (\(reason)). pid=\(pid), \(eventSource.diagnosticSummary). \(screenTopologySummary())")
 
-        guard let windows = axClient.notificationWindows(pid: pid) else {
-            debugLog("Failed to get notification windows")
-            return .noMovableCandidates
+        let windowRead = axClient.notificationWindows(pid: pid)
+        guard let windows = windowRead.windows else {
+            notificationWindowReadFailed = true
+            debugLog("Failed to get notification windows (\(reason)): pid=\(pid), error=\(windowRead.error.diagnosticSummary), \(eventSource.diagnosticSummary)")
+            return .retryNeeded
+        }
+        if notificationWindowReadFailed {
+            debugLog("Notification Center window reads recovered (\(reason)): pid=\(pid)")
+            notificationWindowReadFailed = false
+            eventSource.ensureAXObserver(force: true)
         }
         debugLog("Notification Center windows snapshot (\(reason)): count=\(windows.count) [\(windowInventorySummary(windows))]")
 
         var movedAny = false
-        var foundBannerContainer = false
         var movedCount = 0
+        var failedCount = 0
         var nonMovableCount = 0
         var noBannerContainerCount = 0
         for (index, window) in windows.enumerated() {
@@ -707,28 +729,24 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             switch moveNotificationResult(window) {
             case .moved:
                 movedAny = true
-                foundBannerContainer = true
                 movedCount += 1
+            case .moveFailed:
+                failedCount += 1
             case .nonMovableCandidate:
-                foundBannerContainer = true
                 nonMovableCount += 1
             case .noBannerContainer:
                 noBannerContainerCount += 1
             }
         }
-        let scanResult: NotificationScanResult
-        if movedAny {
-            scanResult = .movedNotification
-        } else if !foundBannerContainer, !windows.isEmpty {
-            scanResult = .placeholderOnly
-        } else {
-            scanResult = .noMovableCandidates
-        }
+        let scanResult = NotificationScanResult.fromWindowCounts(
+            moved: movedCount, failed: failedCount, nonMovable: nonMovableCount, noBannerContainer: noBannerContainerCount
+        )
         debugLog(
             "moveAllNotifications completed (\(reason)): " +
                 "movedAny=\(movedAny), " +
                 "windows=\(windows.count), " +
                 "moved=\(movedCount), " +
+                "failed=\(failedCount), " +
                 "nonMovable=\(nonMovableCount), " +
                 "noBannerContainer=\(noBannerContainerCount), " +
                 "scanResult=\(notificationScanResultSummary(scanResult))"
@@ -861,6 +879,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         switch result {
         case let .moved(needsSettleFollowUp):
             return .moved(needsSettleFollowUp: needsSettleFollowUp)
+        case .moveFailed:
+            return .moveFailed
         case .noBannerContainer:
             return .noBannerContainer
         case .nonMovableCandidate:
@@ -872,6 +892,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         switch result {
         case let .moved(needsSettleFollowUp):
             return "moved(needsSettleFollowUp:\(needsSettleFollowUp))"
+        case .moveFailed:
+            return "moveFailed"
         case .noBannerContainer:
             return "noBannerContainer"
         case .nonMovableCandidate:
@@ -887,6 +909,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             return "noMovableCandidates"
         case .placeholderOnly:
             return "placeholderOnly"
+        case .retryNeeded:
+            return "retryNeeded"
         }
     }
 
@@ -909,13 +933,31 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     }
 
     func systemWillSleep() {
-        debugLog("System will sleep. \(screenTopologySummary())")
+        controller.invalidate()
+        debugLog("System will sleep. \(eventSource.diagnosticSummary). \(screenTopologySummary())")
     }
 
     func systemDidWake() {
         DispatchQueue.main.async {
             self.refreshMenu()
             self.controller.handleWake()
+        }
+    }
+
+    func notificationEnvironmentDidBecomeAvailable(reason: String) {
+        DispatchQueue.main.async {
+            self.debugLog("Environment recovery (\(reason)): \(self.eventSource.diagnosticSummary)")
+            self.refreshMenu()
+            self.controller.handleEnvironmentRecovery(reason: reason)
+        }
+    }
+
+    func screenLockChanged(isLocked: Bool) {
+        debugLog("Screen \(isLocked ? "locked" : "unlocked"). \(eventSource.diagnosticSummary)")
+        if isLocked {
+            controller.invalidate()
+        } else {
+            notificationEnvironmentDidBecomeAvailable(reason: "screenUnlocked")
         }
     }
 

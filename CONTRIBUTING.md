@@ -63,8 +63,23 @@ Useful log commands:
 
 ```bash
 tail -f ~/Library/Logs/NotifyPoint/debug.log
-rg "Moved notification|Recovery retry|placeholder follow-up" ~/Library/Logs/NotifyPoint/debug.log
+rg "Moved notification|Recovery retry|recovery follow-up|read failed|Failed to get notification windows|Screen locked|Screen unlocked|observer" ~/Library/Logs/NotifyPoint/debug.log
 ```
+
+The regular app reads `debugMode` at launch; quit and reopen it after changing the
+setting. When reporting a missed move, include its approximate time and whether
+`Rerun Detection` or restarting the app restored positioning.
+
+The trace records Accessibility error names/codes, permission status, Notification
+Center and observer PIDs, the last window-created event, lock/unlock and wake
+events, and position-write results with readback verification. A move is reported
+as successful only when the banner position matches the target within one point.
+
+Missing observers are retried every five seconds. Failed reads and unverified
+moves use the existing fast retries, then follow up every 30 seconds for up to
+30 minutes. Unlock, wake, and restored observer connections restart recovery.
+Lock/unlock detection uses undocumented macOS distributed notifications;
+documented workspace session and display-wake notifications remain active too.
 
 ### Menu preview mode
 

@@ -102,6 +102,13 @@ final class NotificationController {
         triggerRecoveryReposition(reason: "manualDetectionRerun")
     }
 
+    func handleEnvironmentRecovery(reason: String) {
+        guard let delegate else { return }
+        delegate.debugLog("Notification environment became available (\(reason)). \(delegate.screenTopologySummary())")
+        delegate.clearCachedNotificationGeometry()
+        triggerRecoveryReposition(reason: reason)
+    }
+
     func handleWidgetMonitorTick() {
         guard let delegate else { return }
 
@@ -163,12 +170,17 @@ final class NotificationController {
         delegate.debugLog("Scheduling notification settle follow-up \(index + 1)/\(notificationSettleIntervals.count) in \(interval)s.")
         notificationSettleTask = scheduler.schedule(after: interval) { [weak self] in
             guard let self, let delegate = self.delegate else { return }
-            _ = delegate.moveAllNotifications(reason: "notificationWindowCreated-settle\(index + 1)")
-            self.scheduleNotificationSettle(at: index + 1)
+            let result = delegate.moveAllNotifications(reason: "notificationWindowCreated-settle\(index + 1)")
+            if index + 1 == self.notificationSettleIntervals.count, result == .retryNeeded {
+                self.notificationSettleTask = nil
+                self.triggerRecoveryReposition(reason: "notificationWindowCreated", scanResult: result)
+            } else {
+                self.scheduleNotificationSettle(at: index + 1)
+            }
         }
     }
 
-    private func triggerRecoveryReposition(reason: String) {
+    private func triggerRecoveryReposition(reason: String, scanResult: NotificationScanResult? = nil) {
         guard let delegate else { return }
 
         recoveryRetryReason = reason
@@ -177,9 +189,11 @@ final class NotificationController {
         placeholderFollowUpReason = nil
         placeholderFollowUpAttempt = 0
         placeholderFollowUpTask?.cancel()
+        notificationSettleTask?.cancel()
+        notificationSettleTask = nil
 
-        let scanResult = delegate.moveAllNotifications(reason: reason)
-        scheduleRecoveryRetryIfNeeded(reason: reason, scanResult: scanResult)
+        let result = scanResult ?? delegate.moveAllNotifications(reason: reason)
+        scheduleRecoveryRetryIfNeeded(reason: reason, scanResult: result)
     }
 
     private func scheduleRecoveryRetryIfNeeded(reason: String, scanResult: NotificationScanResult) {
@@ -215,7 +229,7 @@ final class NotificationController {
     private func schedulePlaceholderFollowUpIfNeeded(reason: String, scanResult: NotificationScanResult) {
         guard let delegate else { return }
 
-        let action = NotificationCenterStatePolicy.placeholderFollowUpAction(
+        let action = NotificationCenterStatePolicy.recoveryFollowUpAction(
             scanResult: scanResult,
             attemptNumber: placeholderFollowUpAttempt,
             maxAttempts: placeholderFollowUpLimit
@@ -223,15 +237,15 @@ final class NotificationController {
 
         switch action {
         case .stop:
-            if scanResult == .placeholderOnly, placeholderFollowUpAttempt >= placeholderFollowUpLimit {
-                delegate.debugLog("Placeholder follow-up window exhausted (\(placeholderFollowUpAttempt)/\(placeholderFollowUpLimit)) for \(reason).")
+            if (scanResult == .placeholderOnly || scanResult == .retryNeeded), placeholderFollowUpAttempt >= placeholderFollowUpLimit {
+                delegate.debugLog("Recovery follow-up window exhausted (\(placeholderFollowUpAttempt)/\(placeholderFollowUpLimit)) for \(reason), result=\(scanResult).")
             }
             placeholderFollowUpTask?.cancel()
             placeholderFollowUpTask = nil
         case .retry:
             placeholderFollowUpAttempt += 1
             placeholderFollowUpReason = reason
-            delegate.debugLog("Scheduling placeholder follow-up \(placeholderFollowUpAttempt)/\(placeholderFollowUpLimit) for \(reason) in \(placeholderFollowUpInterval)s.")
+            delegate.debugLog("Scheduling recovery follow-up \(placeholderFollowUpAttempt)/\(placeholderFollowUpLimit) for \(reason) in \(placeholderFollowUpInterval)s, result=\(scanResult).")
             placeholderFollowUpTask?.cancel()
             placeholderFollowUpTask = scheduler.schedule(after: placeholderFollowUpInterval) { [weak self] in
                 guard let self, let delegate = self.delegate else { return }

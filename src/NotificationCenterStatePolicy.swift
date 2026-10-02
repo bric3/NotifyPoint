@@ -37,12 +37,12 @@ enum NotificationCenterStatePolicy {
         return .retry
     }
 
-    static func placeholderFollowUpAction(
+    static func recoveryFollowUpAction(
         scanResult: NotificationScanResult,
         attemptNumber: Int,
         maxAttempts: Int
     ) -> RecoveryRetryAction {
-        guard scanResult == .placeholderOnly else {
+        guard scanResult == .placeholderOnly || scanResult == .retryNeeded else {
             return .stop
         }
         if attemptNumber >= maxAttempts {
