@@ -4,6 +4,14 @@ import ApplicationServices
 import Cocoa
 
 enum NotificationCenterAXTraversalPolicy {
+    static let bannerSubroles: [String] = [
+        "AXNotificationCenterBanner",
+        "AXNotificationCenterAlert",
+        "AXNotificationCenterNotification",
+        "AXNotificationCenterBannerWindow",
+        "AXNotificationCenterAlertStack",
+    ]
+
     static let descendantAttributes: [String] = [
         kAXChildrenAttribute as String,
         "AXContents",
@@ -37,7 +45,7 @@ protocol NotificationCenterAXClient {
     func size(of element: AXUIElement) -> CGSize?
     @discardableResult
     func setPosition(_ element: AXUIElement, point: CGPoint) -> AXError
-    func firstElement(root: AXUIElement, targetSubroles: [String]) -> AXUIElement?
+    func firstElement(root: AXUIElement, targetSubroles: [String], diagnoseMissing: Bool) -> AXUIElement?
     func hasSystemWideFocusedApplication(pid: pid_t) -> Bool
     func hasSystemWideFocusedWindow(pid: pid_t) -> Bool
     func hasFocusedWindow(pid: pid_t) -> Bool
@@ -127,7 +135,7 @@ struct SystemNotificationCenterAXClient: NotificationCenterAXClient {
         return AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, value)
     }
 
-    func firstElement(root: AXUIElement, targetSubroles: [String]) -> AXUIElement? {
+    func firstElement(root: AXUIElement, targetSubroles: [String], diagnoseMissing: Bool) -> AXUIElement? {
         if let preferredMatch = firstMatchingElement(
             roots: [root],
             childProvider: { preferredChildren(of: $0) },
@@ -139,7 +147,8 @@ struct SystemNotificationCenterAXClient: NotificationCenterAXClient {
         return firstMatchingElement(
             roots: [root],
             childProvider: { fallbackChildren(of: $0) },
-            targetSubroles: targetSubroles
+            targetSubroles: targetSubroles,
+            diagnoseMissing: diagnoseMissing
         )
     }
 
@@ -219,18 +228,35 @@ struct SystemNotificationCenterAXClient: NotificationCenterAXClient {
     private func firstMatchingElement(
         roots: [AXUIElement],
         childProvider: (AXUIElement) -> [AXUIElement],
-        targetSubroles: [String]
+        targetSubroles: [String],
+        diagnoseMissing: Bool = false
     ) -> AXUIElement? {
-        TreeTraversal.firstMatchingNode(
+        var visitedCount = 0
+        var samples: [String] = []
+        let match = TreeTraversal.firstMatchingNode(
             roots: roots,
             childProvider: childProvider,
             matches: { element in
-                guard let subrole = subrole(of: element) else {
-                    return false
+                var subroleRef: AnyObject?
+                let error = AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleRef)
+                let subrole = error == .success ? subroleRef as? String : nil
+                if diagnoseMissing {
+                    visitedCount += 1
+                    // Sample only metadata from the existing search; never notification text.
+                    if samples.count < 64 {
+                        let detail = subrole ?? "missing(\(error.diagnosticSummary))"
+                        samples.append("\(role(of: element) ?? "unknown")/\(detail)")
+                    }
                 }
+                guard let subrole else { return false }
                 return targetSubroles.contains(subrole)
             }
         )
+        if diagnoseMissing, match == nil {
+            log("Unrecognised notification tree: visited=\(visitedCount), sampled=\(samples.count), " +
+                "roles/subroles=[\(samples.joined(separator: ", "))]")
+        }
+        return match
     }
 
     private func preferredChildren(of element: AXUIElement) -> [AXUIElement] {

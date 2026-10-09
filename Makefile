@@ -118,7 +118,7 @@ run:
 test: check-build-deps
 	@mkdir -p .build
 	@if [ -f tests/NotificationBehaviorTests.swift ]; then \
-		swiftc $(TEST_SWIFT_SOURCES) -o .build/NotificationBehaviorTests; \
+		swiftc $(TEST_SWIFT_SOURCES) -o .build/NotificationBehaviorTests && \
 		.build/NotificationBehaviorTests; \
 	else \
 		echo "No NotificationBehaviorTests on this branch."; \

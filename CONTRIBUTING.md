@@ -74,10 +74,13 @@ The trace records Accessibility error names/codes, permission status, Notificati
 Center and observer PIDs, the last window-created event, lock/unlock and wake
 events, and position-write results with readback verification. A move is reported
 as successful only when the banner position matches the target within one point.
+Unrecognised notification dialogs include a sample of up to 64 Accessibility
+roles/subroles and subrole read errors, without notification text.
 
-Missing observers are retried every five seconds. Failed reads and unverified
-moves use the existing fast retries, then follow up every 30 seconds for up to
-30 minutes. Unlock, wake, and restored observer connections restart recovery.
+The five-second check restores missing observers; it does not reposition existing
+notifications. Failed reads, unrecognised notification windows, and unverified
+moves use fast retries, then follow up every 30 seconds for up to 30 minutes.
+Unlock, wake, and restored observer connections restart recovery.
 Lock/unlock detection uses undocumented macOS distributed notifications;
 documented workspace session and display-wake notifications remain active too.
 

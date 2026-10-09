@@ -51,12 +51,6 @@ final class FileDebugLogger {
 
 class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, NotificationControllerDelegate, NotificationEventHandler {
     private let notificationCenterBundleID: String = "com.apple.notificationcenterui"
-    private let bannerSubroles: [String] = [
-        "AXNotificationCenterBanner",
-        "AXNotificationCenterAlert",
-        "AXNotificationCenterNotification",
-        "AXNotificationCenterBannerWindow",
-    ]
     private let paddingAboveDock: CGFloat = 30
     private var statusItem: NSStatusItem?
     private let runtimeConfiguration = NotifyPointRuntimeConfiguration.detect(
@@ -500,7 +494,11 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         let hasWidgetDescendant = axClient.hasWidgetDescendant(root: window)
         let windowSize = axClient.size(of: window)
         let windowPosition = axClient.position(of: window)
-        let bannerContainer = axClient.firstElement(root: window, targetSubroles: bannerSubroles)
+        let bannerContainer = axClient.firstElement(
+            root: window,
+            targetSubroles: NotificationCenterAXTraversalPolicy.bannerSubroles,
+            diagnoseMissing: debugMode && !hasWidgetDescendant && axClient.subrole(of: window) == "AXSystemDialog"
+        )
         let bannerIdentifier = bannerContainer.flatMap(axClient.windowIdentifier)
         let bannerFocused = bannerContainer.map(axClient.isFocused) ?? false
         let bannerSubrole = bannerContainer.flatMap(axClient.subrole)

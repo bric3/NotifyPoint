@@ -604,6 +604,25 @@ private func testMoveDecisionAllowsAlertsWhilePanelIsOpen() throws {
     try assertEqual(result, .move, "alert windows should still move while panel-open heuristics are active")
 }
 
+private func testAlertStackMoveDecisionPreservesPanelAndWidgetGuards() throws {
+    let cases: [(Bool, Bool, Bool, NotificationMoveDecision)] = [
+        (false, false, false, .move),
+        (true, false, false, .skipFocused),
+        (false, true, false, .skipPanelOpen),
+        (false, false, true, .skipWidget),
+    ]
+    for (focused, panelOpen, hasWidget, expected) in cases {
+        let result = NotificationMovePolicy.moveDecision(
+            identifier: "notification-stack",
+            focused: focused,
+            isNotificationCenterPanelOpen: panelOpen,
+            hasWidgetDescendant: hasWidget,
+            notificationSubrole: "AXNotificationCenterAlertStack"
+        )
+        try assertEqual(result, expected, "alert stacks must retain focus, panel and widget guards")
+    }
+}
+
 private func testCacheResetWhenWindowIdentifierChanges() throws {
     try assertTrue(
         NotificationMovePolicy.shouldResetCache(
@@ -878,6 +897,40 @@ private func testFirstMatchingNodeReturnsNilWhenNoMatchExists() throws {
     )
 
     try assertEqual(found, nil, "iterative traversal should return nil when no match exists")
+}
+
+private func testBannerSearchRecognisesAlertStackWithoutIndividualBanner() throws {
+    let subroles = ["AXSystemDialog", "AXHostingView", "AXNotificationCenterAlertStack", "AXUnknown"]
+    let children = [0: [1, 3], 1: [2]]
+    let found = TreeTraversal.firstMatchingNode(
+        roots: [0],
+        childProvider: { children[$0] ?? [] },
+        matches: { NotificationCenterAXTraversalPolicy.bannerSubroles.contains(subroles[$0]) }
+    )
+
+    try assertEqual(found, 2, "a stack can be the only exposed notification container")
+}
+
+private func testMissingBannerDiagnosticsAreOptInAndIncludeReadErrors() throws {
+    var messages: [String] = []
+    let client = SystemNotificationCenterAXClient(log: { messages.append($0) })
+    let unavailableApplication = AXUIElementCreateApplication(pid_t.max)
+
+    for diagnoseMissing in [false, true] {
+        let found = client.firstElement(
+            root: unavailableApplication,
+            targetSubroles: NotificationCenterAXTraversalPolicy.bannerSubroles,
+            diagnoseMissing: diagnoseMissing
+        )
+        try assertTrue(found == nil, "an unavailable application must not produce a banner")
+        if !diagnoseMissing {
+            try assertTrue(messages.isEmpty, "tree diagnostics should be disabled by default")
+        }
+    }
+
+    try assertEqual(messages.count, 1, "log one summary for a failed search")
+    try assertTrue(messages[0].contains("visited=1, sampled=1"), "include the inspected node count")
+    try assertTrue(messages[0].contains("unknown/missing("), "include subrole read failures")
 }
 
 private func testControllerWakeClearsCacheAndTriggersMove() throws {
@@ -2098,6 +2151,7 @@ struct NotificationBehaviorTestRunner {
             ("move decision allows regular banners", testMoveDecisionAllowsRegularBanners),
             ("move decision skips while panel is open", testMoveDecisionSkipsWhenNotificationCenterPanelIsOpen),
             ("move decision allows alerts while panel is open", testMoveDecisionAllowsAlertsWhilePanelIsOpen),
+            ("alert stacks preserve panel and widget guards", testAlertStackMoveDecisionPreservesPanelAndWidgetGuards),
             ("cache resets when window identifier changes", testCacheResetWhenWindowIdentifierChanges),
             ("cache does not reset without identifiers", testCacheDoesNotResetWithoutIdentifiers),
             ("cache identifier prefers notification identifier", testCacheIdentifierPrefersNotificationIdentifier),
@@ -2120,6 +2174,8 @@ struct NotificationBehaviorTestRunner {
             ("iterative traversal finds node in cyclic graph", testFirstMatchingNodeFindsNodeInCyclicGraph),
             ("iterative traversal handles deep graph", testFirstMatchingNodeHandlesDeepGraphWithoutRecursion),
             ("iterative traversal returns nil when no match exists", testFirstMatchingNodeReturnsNilWhenNoMatchExists),
+            ("banner search recognises stacks without individual banners", testBannerSearchRecognisesAlertStackWithoutIndividualBanner),
+            ("missing banner diagnostics include read errors when enabled", testMissingBannerDiagnosticsAreOptInAndIncludeReadErrors),
             ("controller launch clears cache and moves", testControllerLaunchClearsCacheAndTriggersMove),
             ("controller launch schedules retry", testControllerLaunchSchedulesRetryWhenNoMoveOccurs),
             ("controller wake clears cache and moves", testControllerWakeClearsCacheAndTriggersMove),
