@@ -6,12 +6,13 @@ all: build
 
 CODESIGN_IDENTITY_FILE ?= .codesign_identity
 BUILD_INFO_SWIFT ?= .build/BuildInfo.generated.swift
+APP_BUNDLE ?= NotifyPoint.app
 LICENSEOPS ?= lops
 RSVG_CONVERT ?= rsvg-convert
 BUILD_DEPENDENCIES = bash swiftc lipo codesign git shasum awk find date
 SMOKE_TEST_DEPENDENCIES = bash open alerter grep awk ps kill tail wc head make
 APP_SWIFT_SOURCES = $(sort $(wildcard src/*.swift)) $(BUILD_INFO_SWIFT)
-TEST_SWIFT_SOURCES = src/MachineModelPolicy.swift src/NotificationDisplayTarget.swift src/NotificationDisplayTargetPolicy.swift src/NotifyPointLaunchMode.swift src/NotifyPointMenuPolicy.swift src/NotifyPointMenuPreviewIPC.swift src/NotifyPointSettings.swift src/NotificationPosition.swift src/NotificationPositionGridLayout.swift src/NotificationGeometry.swift src/NotificationPolicyTypes.swift src/NotificationMovePolicy.swift src/NotificationCenterStatePolicy.swift src/ScreenResolutionPolicy.swift src/TreeTraversal.swift src/NotificationController.swift src/NotificationWindowPlacementEngine.swift src/NotificationCenterAXClient.swift src/NotificationEventSource.swift tests/NotificationBehaviorTests.swift tests/NotificationPositionPickerTests.swift
+TEST_SWIFT_SOURCES = src/MachineModelPolicy.swift src/NotificationDisplayTarget.swift src/NotificationDisplayTargetPolicy.swift src/NotifyPointLaunchMode.swift src/NotifyPointScreenshotConfiguration.swift src/NotifyPointMenuPolicy.swift src/NotifyPointMenuPreviewIPC.swift src/NotifyPointSettings.swift src/NotificationPosition.swift src/NotificationPositionGridLayout.swift src/NotificationGeometry.swift src/NotificationPolicyTypes.swift src/NotificationMovePolicy.swift src/NotificationCenterStatePolicy.swift src/ScreenResolutionPolicy.swift src/TreeTraversal.swift src/NotificationController.swift src/NotificationWindowPlacementEngine.swift src/NotificationCenterAXClient.swift src/NotificationEventSource.swift tests/NotificationBehaviorTests.swift tests/NotificationPositionPickerTests.swift
 
 ifneq ("$(wildcard $(CODESIGN_IDENTITY_FILE))","")
 CODESIGN_IDENTITY ?= $(shell cat $(CODESIGN_IDENTITY_FILE))
@@ -59,18 +60,15 @@ check-smoke-test-deps: check-build-deps
 build: check-build-deps
 	@mkdir -p .build
 	@$(MAKE) generate-build-info
-	@mkdir -p NotifyPoint.app/Contents/MacOS
-	@mkdir -p NotifyPoint.app/Contents/Resources
-	@cp src/Info.plist NotifyPoint.app/Contents/
-	@cp LICENSE NotifyPoint.app/Contents/Resources/
-	@cp src/assets/app-icon/icon.icns NotifyPoint.app/Contents/Resources/
-	@cp src/assets/menu-bar-icon/MenuBarIcon*.png NotifyPoint.app/Contents/Resources/
-	swiftc $(APP_SWIFT_SOURCES) -o NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 -O -target x86_64-apple-macos14.0
-	swiftc $(APP_SWIFT_SOURCES) -o NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64 -O -target arm64-apple-macos14.0
-	lipo -create -output NotifyPoint.app/Contents/MacOS/NotifyPoint NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64
-	rm NotifyPoint.app/Contents/MacOS/NotifyPoint-x86_64 NotifyPoint.app/Contents/MacOS/NotifyPoint-arm64
+	@mkdir -p "$(APP_BUNDLE)/Contents/MacOS" "$(APP_BUNDLE)/Contents/Resources"
+	@cp src/Info.plist "$(APP_BUNDLE)/Contents/"
+	@cp LICENSE src/assets/app-icon/icon.icns src/assets/menu-bar-icon/MenuBarIcon*.png "$(APP_BUNDLE)/Contents/Resources/"
+	swiftc $(APP_SWIFT_SOURCES) -o "$(APP_BUNDLE)/Contents/MacOS/NotifyPoint-x86_64" -O -target x86_64-apple-macos14.0
+	swiftc $(APP_SWIFT_SOURCES) -o "$(APP_BUNDLE)/Contents/MacOS/NotifyPoint-arm64" -O -target arm64-apple-macos14.0
+	lipo -create -output "$(APP_BUNDLE)/Contents/MacOS/NotifyPoint" "$(APP_BUNDLE)/Contents/MacOS/NotifyPoint-x86_64" "$(APP_BUNDLE)/Contents/MacOS/NotifyPoint-arm64"
+	rm "$(APP_BUNDLE)/Contents/MacOS/NotifyPoint-x86_64" "$(APP_BUNDLE)/Contents/MacOS/NotifyPoint-arm64"
 	$(warn_adhoc_signing)
-	codesign --entitlements src/NotifyPoint.entitlements -fvs "$(CODESIGN_IDENTITY)" NotifyPoint.app
+	codesign --entitlements src/NotifyPoint.entitlements -fvs "$(CODESIGN_IDENTITY)" "$(APP_BUNDLE)"
 
 debug-build: check-build-deps
 	@mkdir -p .build
@@ -129,6 +127,13 @@ smoke-test: check-smoke-test-deps
 
 smoke-test-check:
 	@bash -n scripts/smoke-test-alerter.sh
+
+.PHONY: screenshots screenshots-check
+screenshots:
+	jbang scripts/screenshots/CaptureScreenshots.java $(SCREENSHOT_ARGS)
+
+screenshots-check:
+	jbang scripts/screenshots/CaptureScreenshots.java --self-test
 
 license-check:
 	$(LICENSEOPS) check

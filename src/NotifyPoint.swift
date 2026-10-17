@@ -58,6 +58,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         environment: ProcessInfo.processInfo.environment
     )
     private var launchMode: NotifyPointLaunchMode { runtimeConfiguration.launchMode }
+    private var screenshotConfiguration: NotifyPointScreenshotConfiguration?
+    private var screenshotPreview: NotifyPointScreenshotPreview?
     private lazy var settings = NotifyPointSettings(source: runtimeConfiguration.settingsSource)
     private lazy var isMenuBarIconHidden: Bool = settings.bool(forKey: .isMenuBarIconHidden)
     private let logger: Logger = .init(subsystem: "io.github.bric3.notifypoint", category: "NotificationMover")
@@ -134,6 +136,17 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     }
 
     func applicationDidFinishLaunching(_: Notification) {
+        do {
+            screenshotConfiguration = try NotifyPointScreenshotConfiguration.detect(
+                arguments: CommandLine.arguments, launchMode: launchMode
+            )
+        } catch {
+            fputs("\(error.localizedDescription)\n", stderr)
+            exit(1)
+        }
+        if let screenshotConfiguration {
+            NSApp.appearance = NSAppearance(named: screenshotConfiguration.appearance == "dark" ? .darkAqua : .aqua)
+        }
         if let debugLogPath = fileDebugLogger?.path {
             debugLog("Debug mode enabled. Writing trace file to: \(debugLogPath)")
         }
@@ -148,8 +161,10 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             break
         }
         debugLog(screenTopologySummary())
-        terminatePreviousInstanceIfNeeded()
-        registerInstanceTerminationObserver()
+        if screenshotConfiguration == nil {
+            terminatePreviousInstanceIfNeeded()
+            registerInstanceTerminationObserver()
+        }
         if launchMode == .menuPreview {
             debugLog("Menu preview mode enabled. Accessibility checks, event listeners, settings writes, and notification moves are disabled.")
         } else {
@@ -160,12 +175,22 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             setupStatusItem()
         }
         startSettingsFileWatchIfNeeded()
+        if let configuration = screenshotConfiguration,
+           let button = statusItem?.button, let menu = statusItem?.menu
+        {
+            let preview = NotifyPointScreenshotPreview(configuration: configuration)
+            screenshotPreview = preview
+            preview.start(button: button, menu: menu, picker: positionPickerView,
+                          displayPicker: displayTargetPickerView,
+                          displayTarget: currentDisplayTarget)
+        }
         if launchMode != .menuPreview {
             controller.handleApplicationDidFinishLaunching()
         }
     }
 
     func applicationWillBecomeActive(_: Notification) {
+        guard screenshotConfiguration == nil else { return }
         guard isMenuBarIconHidden else { return }
         isMenuBarIconHidden = false
         settings.set(false, forKey: .isMenuBarIconHidden)
@@ -174,6 +199,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     }
 
     func applicationWillTerminate(_: Notification) {
+        screenshotPreview?.close()
         controller.invalidate()
         eventSource.stop()
         if let instanceTerminationObserver {
@@ -229,12 +255,14 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     private func createMenu() -> NSMenu {
         let menu = NSMenu()
         let screens = currentScreenDescriptors()
-        let showsDisplaySelector = NotificationDisplayTargetPolicy.showsDisplaySelector(
+        let hardwareAvailable = NotificationDisplayTargetPolicy.showsDisplaySelector(
             isPortableMac: isPortableMac,
             screens: screens
         )
+        let showsDisplaySelector = screenshotConfiguration?.showsDisplaySelector(hardwareAvailable: hardwareAvailable)
+            ?? hardwareAvailable
 
-        if launchMode == .menuPreview {
+        if launchMode == .menuPreview, screenshotConfiguration == nil {
             let previewInfoItem = NSMenuItem(title: "Preview", action: nil, keyEquivalent: "")
             previewInfoItem.isEnabled = false
             menu.addItem(previewInfoItem)
@@ -254,10 +282,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         }
 
         let positionSectionTitleItem = NSMenuItem(
-            title: NotificationDisplayTargetPolicy.sectionTitle(
-                isPortableMac: isPortableMac,
-                screens: screens
-            ),
+            title: showsDisplaySelector ? "Position" : "Position on the Main Display",
             action: nil,
             keyEquivalent: ""
         )
@@ -298,6 +323,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
 
         let launchItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
         launchItem.state = FileManager.default.fileExists(atPath: launchAgentPlistPath) ? .on : .off
+        if screenshotConfiguration != nil { launchItem.state = .on }
         if launchMode == .menuPreview {
             launchItem.action = #selector(handlePreviewOnlyAction(_:))
         }
@@ -314,7 +340,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         let quitTitle: String
         switch launchMode {
         case .menuPreview:
-            quitTitle = "Quit Preview"
+            quitTitle = screenshotConfiguration == nil ? "Quit Preview" : "Quit"
         case .smokeTest:
             quitTitle = "Quit Smoke Test"
         case .full:

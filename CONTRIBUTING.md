@@ -6,6 +6,10 @@
 
 NotifyPoint is a macOS app built directly with `swiftc` and `make`.
 
+Java scripts require Java 25 or newer and run through JBang. Declare `//JAVA 25+`
+in each script so JBang selects a compatible JDK. Use modern Java features where
+they simplify the code.
+
 Useful commands:
 
 ```bash
@@ -113,6 +117,81 @@ Preview mode:
 - does not move notifications
 - does not persist picker selections
 - replaces any previous preview instance
+
+## Documentation screenshots
+
+Regenerate the menu images with:
+
+```bash
+make screenshots
+```
+
+This requires an interactive macOS desktop, the build tools above, JBang, Java 25 or newer,
+and a display with 2x backing scale and enough room for a 400 x 520 point canvas.
+Allow Screen Recording and Accessibility for the terminal or agent launching the
+command. Reduce transparency and Increase contrast must be off. The runner
+reports missing permissions or incompatible settings without changing them.
+
+The default captures simulate display-selector availability using the real
+AppKit menu. Both scenes work on a desktop Mac: the position scene hides the
+selector, and the display scene selects Laptop Display. Simulation changes the
+available controls; native macOS still renders the menu and its translucency.
+
+To use actual hardware detection:
+
+```bash
+make screenshots SCREENSHOT_ARGS=--hardware
+```
+
+In hardware mode, the position scene uses the actual menu layout. The display
+scene requires a Mac laptop with its built-in display available, so it is skipped
+when that display is unavailable. Existing assets and metadata for skipped scenes
+are preserved.
+
+Each scene selects Middle and captures light and dark appearances. The position
+scene hovers Top Left; the display scene hovers Middle Right. Captures use a fixed
+blue background and a controlled header containing the app's position icon,
+excluding personal menu bar items. The header is a preview presentation, while
+the menu and pickers are the same AppKit controls used by the app.
+
+Outputs are 800 x 1040 PNGs:
+
+- `.github/menu-screenshot.png` and `.github/menu-screenshot-dark.png`
+- `.github/menu-display-screenshot.png` and `.github/menu-display-screenshot-dark.png`
+
+`.github/menu-screenshots.properties` records each image's macOS version/build,
+scale, scene state, strategy, and capture geometry. The initial generated set uses
+macOS 26.7.1 (25G241) at 2x backing scale. Exact pixels can vary across macOS versions.
+
+The runner builds and launches a temporary app bundle with an isolated settings
+file. It captures composited screen regions with `screencapture`, checks readiness,
+state, bounds and dimensions, then replaces documentation assets after all
+available scenes pass. It restores originals if replacement fails. Cleanup closes
+only owned processes and windows and restores the pointer, including on ordinary
+failure or interruption. A parent watchdog also closes abandoned preview windows.
+Avoid using the pointer during capture; it is temporarily moved to establish hover.
+After building, a confirmation dialog warns that capture will use the mouse for
+about 20 seconds. Choose Cancel to leave the desktop and documentation assets
+unchanged. A slow or failed capture can take up to two minutes to stop.
+Existing app instances, preferences, wallpaper and application positions are retained.
+
+Run the Java runner checks without capturing the desktop:
+
+```bash
+make screenshots-check
+```
+
+For visual validation, run generation twice on the same machine and compare the
+four images for tint, translucency, selection, hover and cropping. Validate hardware
+mode separately on a laptop. This is a local documentation workflow; real
+notification screenshots remain part of the smoke test below, and unattended CI
+capture is outside its scope.
+
+The background PNG is checked in. To regenerate it from its source:
+
+```bash
+rsvg-convert --output=scripts/screenshots/background.png scripts/screenshots/background.svg
+```
 
 ## Local smoke test
 

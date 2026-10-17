@@ -242,6 +242,12 @@ final class NotificationPositionPickerView: NSView {
         return CGRect(x: x, y: y, width: cellWidth, height: cellHeight)
     }
 
+    func screenshotHoverPoint(for position: NotificationPosition) -> CGPoint {
+        let index = NotificationPositionGridLayout.gridIndex(for: position)
+        let rect = cellRect(row: index.row, column: index.column)
+        return CGPoint(x: rect.midX, y: rect.midY)
+    }
+
     private func position(at point: CGPoint) -> NotificationPosition? {
         for row in 0 ..< NotificationPositionGridLayout.rows.count {
             for column in 0 ..< NotificationPositionGridLayout.rows[row].count {

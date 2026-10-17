@@ -2105,10 +2105,40 @@ private func testDockSizeUsesVisibleFrameDifference() throws {
     try assertEqual(ScreenResolutionPolicy.dockSize(for: screen), 40, "dock size")
 }
 
+private func testScreenshotConfiguration() throws {
+    try assertEqual(
+        try NotifyPointScreenshotConfiguration.detect(arguments: ["NotifyPoint"], launchMode: .menuPreview) == nil,
+        true, "ordinary previews should retain their existing lifecycle"
+    )
+    let arguments = ["NotifyPoint", "--screenshot-session", "/tmp/session", "display", "dark", "4242"]
+    let simulated = try NotifyPointScreenshotConfiguration.detect(arguments: arguments, launchMode: .menuPreview)!
+    try assertEqual(simulated.showsDisplaySelector(hardwareAvailable: false), true, "simulation should show the display selector")
+    let hardware = try NotifyPointScreenshotConfiguration.detect(arguments: arguments + ["--hardware"], launchMode: .menuPreview)!
+    try assertEqual(hardware.showsDisplaySelector(hardwareAvailable: false), false, "hardware mode should require a laptop display")
+    try assertEqual(hardware.showsDisplaySelector(hardwareAvailable: true), true, "hardware mode should retain a real selector")
+    let position = try NotifyPointScreenshotConfiguration.detect(
+        arguments: ["--screenshot-session", "/tmp/session", "position", "light", "4242"], launchMode: .menuPreview
+    )!
+    try assertEqual(position.showsDisplaySelector(hardwareAvailable: true), false, "position simulation should hide the selector")
+    do {
+        _ = try NotifyPointScreenshotConfiguration.detect(arguments: arguments, launchMode: .full)
+        throw TestFailure.assertionFailed("screenshot controls must require preview mode")
+    } catch {
+        try assertEqual((error as NSError).domain, "NotifyPointScreenshots", "full mode must reject screenshot controls")
+    }
+    do {
+        _ = try NotifyPointScreenshotConfiguration.detect(arguments: ["--screenshot-session"], launchMode: .menuPreview)
+        throw TestFailure.assertionFailed("incomplete screenshot arguments must fail")
+    } catch {
+        try assertEqual((error as NSError).domain, "NotifyPointScreenshots", "incomplete arguments must fail")
+    }
+}
+
 @main
 struct NotificationBehaviorTestRunner {
     static func main() {
         let tests: [(String, () throws -> Void)] = [
+            ("screenshot previews isolate presentation and validate arguments", testScreenshotConfiguration),
             ("initial position in bounds", testInitialPositionInBounds),
             ("corrected root position compensates for banner error", testCorrectedRootPositionCompensatesForBannerError),
             ("initial position overflow", testInitialPositionRecomputedWhenOutOfBounds),

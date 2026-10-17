@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+//JAVA 25+
 
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
