@@ -55,6 +55,7 @@ app running; launch NotifyPoint again to restore the icon.
 Position chooser, display selection, and a notification placed at the top left:
 
 <p>
+  <img src=".github/moved-notification-to-top-left.png" alt="Notification moved to top left" width="32%">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/menu-screenshot-dark.png">
     <img src=".github/menu-screenshot.png" alt="NotifyPoint position menu" width="32%">
@@ -63,7 +64,6 @@ Position chooser, display selection, and a notification placed at the top left:
     <source media="(prefers-color-scheme: dark)" srcset=".github/menu-display-screenshot-dark.png">
     <img src=".github/menu-display-screenshot.png" alt="NotifyPoint display menu" width="32%">
   </picture>
-  <img src=".github/moved-notification-to-top-left.png" alt="Notification moved to top left" width="32%">
 </p>
 
 ## Configuration
