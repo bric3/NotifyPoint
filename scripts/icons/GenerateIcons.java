@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-import java.awt.BasicStroke;
-import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.geom.Line2D;
-import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -14,6 +10,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
 import javax.imageio.ImageIO;
 
@@ -45,15 +43,13 @@ public class GenerateIcons {
     }
 
     Path icns = assets.resolve("app-icon/icon.icns");
-    Path menu = assets.resolve("menu-bar-icon/MenuBarIcon.png");
-    Path menu2x = assets.resolve("menu-bar-icon/MenuBarIcon@2x.png");
+    Path menu = assets.resolve("menu-bar-icon");
     Files.createDirectories(icns.getParent());
-    Files.createDirectories(menu.getParent());
+    Files.createDirectories(menu);
 
     writeIcns(source, icns);
-    writeMenuIcon(18, menu);
-    writeMenuIcon(36, menu2x);
-    verify(icns, menu, menu2x);
+    writeMenuIcons(menu);
+    verify(icns);
   }
 
   private static void writeIcns(BufferedImage source, Path destination) throws IOException {
@@ -144,50 +140,48 @@ public class GenerateIcons {
     return length;
   }
 
-  private static void writeMenuIcon(int size, Path destination) throws IOException {
-    int canvasSize = size * 4;
-    var canvas = new BufferedImage(canvasSize, canvasSize, BufferedImage.TYPE_INT_ARGB);
-    Graphics2D graphics = canvas.createGraphics();
-    graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-    graphics.scale(canvasSize / 18.0, canvasSize / 18.0);
-    graphics.setColor(Color.BLACK);
-
-    double x = 1.0;
-    double y = 3.8;
-    double width = 16.0;
-    double height = 10.4;
-    double cellWidth = width / 3.0;
-    double cellHeight = height / 3.0;
-    graphics.fill(new RoundRectangle2D.Double(
-        x + cellWidth, y + cellHeight, cellWidth, cellHeight, 0.5, 0.5));
-    graphics.setStroke(new BasicStroke(1.15f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-    graphics.draw(new RoundRectangle2D.Double(x, y, width, height, 1.8, 1.8));
-    graphics.draw(new Line2D.Double(x + cellWidth, y, x + cellWidth, y + height));
-    graphics.draw(new Line2D.Double(x + 2 * cellWidth, y, x + 2 * cellWidth, y + height));
-    graphics.draw(new Line2D.Double(x, y + cellHeight, x + width, y + cellHeight));
-    graphics.draw(new Line2D.Double(x, y + 2 * cellHeight, x + width, y + 2 * cellHeight));
-    graphics.dispose();
-
-    BufferedImage icon = scale(canvas, size);
-    if (!ImageIO.write(icon, "png", destination.toFile())) {
-      throw new IOException("PNG encoder unavailable");
+  private static void writeMenuIcons(Path directory) throws IOException, InterruptedException {
+    String converter = System.getenv().getOrDefault("RSVG_CONVERT", "rsvg-convert");
+    var positions = List.of("topLeft", "topMiddle", "topRight", "middleLeft", "deadCenter",
+        "middleRight", "bottomLeft", "bottomMiddle", "bottomRight");
+    var distinctImages = new HashSet<String>();
+    for (String position : positions) {
+      String name = "MenuBarIcon-" + position;
+      Path svg = directory.resolve(name + ".svg");
+      for (int scale : new int[] {1, 2}) {
+        Path png = directory.resolve(name + (scale == 1 ? "" : "@2x") + ".png");
+        int width = 24 * scale, height = 22 * scale;
+        int exitCode = new ProcessBuilder(converter, "--width=" + width, "--height=" + height,
+            "--output=" + png, svg.toString()).inheritIO().start().waitFor();
+        if (exitCode != 0) throw new IOException("SVG conversion failed: " + svg);
+        verifyPng(png, width, height);
+      }
+      distinctImages.add(Base64.getEncoder().encodeToString(
+          Files.readAllBytes(directory.resolve(name + ".png"))));
     }
+    if (distinctImages.size() != positions.size()) throw new IOException("duplicate menu bar positions");
   }
 
-  private static void verify(Path icns, Path menu, Path menu2x) throws IOException {
+  private static void verify(Path icns) throws IOException {
     try (var input = new DataInputStream(Files.newInputStream(icns))) {
       if (!"icns".equals(new String(input.readNBytes(4))) || input.readInt() != Files.size(icns)) {
         throw new IOException("invalid ICNS container");
       }
     }
-    verifyPng(menu, 18);
-    verifyPng(menu2x, 36);
   }
 
-  private static void verifyPng(Path path, int size) throws IOException {
+  private static void verifyPng(Path path, int width, int height) throws IOException {
     BufferedImage image = ImageIO.read(path.toFile());
-    if (image == null || image.getWidth() != size || image.getHeight() != size) {
+    if (image == null || image.getWidth() != width || image.getHeight() != height) {
       throw new IOException("invalid generated image: " + path);
+    }
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        if ((x == 0 || y == 0 || x == width - 1 || y == height - 1)
+            && (image.getRGB(x, y) >>> 24) != 0) {
+          throw new IOException("clipped menu bar icon: " + path);
+        }
+      }
     }
   }
 }

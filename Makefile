@@ -104,7 +104,7 @@ generate-build-info:
 
 generate-icons:
 	$(RSVG_CONVERT) --width=1024 --height=1024 --output=src/assets/icon.png src/assets/icon.svg
-	jbang scripts/icons/GenerateIcons.java
+	RSVG_CONVERT="$(RSVG_CONVERT)" jbang scripts/icons/GenerateIcons.java
 
 install: build
 	@killall NotifyPoint 2>/dev/null || true

@@ -207,10 +207,9 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             return
         }
 
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        if let button: NSStatusBarButton = statusItem?.button, let menuBarIcon = NSImage(named: "MenuBarIcon") {
-            menuBarIcon.isTemplate = true
-            button.image = menuBarIcon
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        updateStatusItemImage()
+        if let button: NSStatusBarButton = statusItem?.button {
             if launchMode == .menuPreview {
                 button.toolTip = "NotifyPoint Preview"
             } else if launchMode == .smokeTest {
@@ -218,6 +217,13 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
             }
         }
         statusItem?.menu = createMenu()
+    }
+
+    private func updateStatusItemImage() {
+        guard let menuBarIcon = NSImage(named: "MenuBarIcon-\(currentPosition.rawValue)") else { return }
+        menuBarIcon.isTemplate = true
+        menuBarIcon.size = NSSize(width: 24, height: 22)
+        statusItem?.button?.image = menuBarIcon
     }
 
     private func createMenu() -> NSMenu {
@@ -433,6 +439,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     private func setPosition(_ position: NotificationPosition) {
         let oldPosition = currentPosition
         currentPosition = position
+        updateStatusItemImage()
         positionPickerView?.selectedPosition = position
         if launchMode == .menuPreview {
             debugLog("Preview position changed: \(oldPosition.displayName) → \(position.displayName)")
@@ -1058,6 +1065,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
         if loadedPosition != currentPosition {
             let oldPosition = currentPosition
             currentPosition = loadedPosition
+            updateStatusItemImage()
             positionPickerView?.selectedPosition = loadedPosition
             debugLog("Settings file changed position: \(oldPosition.displayName) → \(loadedPosition.displayName)")
             shouldMoveNotifications = true

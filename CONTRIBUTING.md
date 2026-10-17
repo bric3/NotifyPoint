@@ -19,8 +19,10 @@ make license-fix
 
 The license targets require [LicenseOps](https://licenseops.github.io/docs/getting-started/) (`lops`).
 
-`make generate-icons` uses `rsvg-convert` and JBang to regenerate the app and
-menu-bar icons from the editable vector artwork in `src/assets/icon.svg`.
+`make generate-icons` uses `rsvg-convert` and JBang to regenerate the app icon
+from `src/assets/icon.svg` and the 1x/2x menu bar icons from the nine source SVGs
+in `src/assets/menu-bar-icon/`. Menu bar filenames match `NotificationPosition`
+values so the icon reflects the selected position.
 
 Artifacts:
 
