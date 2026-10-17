@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1040" viewBox="0 0 800 1040">
+  <defs>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#294b73"/>
+      <stop offset=".5" stop-color="#142a52"/>
+      <stop offset="1" stop-color="#1d193d"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#ffa447"/>
+      <stop offset=".5" stop-color="#ef823f"/>
+      <stop offset="1" stop-color="#df603c"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#blue)" d="M0 0h800v1040H0z"/>
+  <!-- The ribbon crosses both picker layouts and tapers from 2 to about 20 pixels. -->
+  <path fill="url(#orange)" d="M-20 330 C90 230 150 260 248 350 C340 440 428 440 526 340 C624 240 710 260 820 330 L820 334 C710 264 624 256 536 356 C432 462 332 454 238 364 C142 270 90 232 -20 332Z"/>
+</svg>

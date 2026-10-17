@@ -86,7 +86,8 @@ public class CaptureScreenshots {
         String name = (scene.equals("position") ? "menu-screenshot" : "menu-display-screenshot")
             + (appearance.equals("dark") ? "-dark" : "") + ".png";
         Path directory = Files.createDirectory(temporary.resolve(scene + "-" + appearance));
-        Files.copy(root.resolve("scripts/screenshots/background.png"), directory.resolve("background.png"));
+        String background = appearance.equals("dark") ? "background-dark.png" : "background.png";
+        Files.copy(root.resolve("scripts/screenshots/" + background), directory.resolve("background.png"));
         Files.writeString(directory.resolve("settings.json"), """
             {"debugMode":false,"notificationPosition":"deadCenter","notificationDisplayTarget":"%s"}
             """.formatted(scene.equals("display") ? "builtInDisplay" : "mainDisplay"));

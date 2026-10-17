@@ -150,9 +150,11 @@ are preserved.
 
 Each scene selects Middle and captures light and dark appearances. The position
 scene hovers Top Left; the display scene hovers Middle Right. Captures use a fixed
-blue background and a controlled header containing the app's position icon,
-excluding personal menu bar items. The header is a preview presentation, while
-the menu and pickers are the same AppKit controls used by the app.
+blue background with a tapered orange curve passing behind the position picker.
+Dark captures use a darker blue background and warmer orange. A full-width menu
+bar at the top contains the app's position icon, Wi-Fi, Control Centre, a fixed
+75% battery and a fixed date/clock. These preview items exclude personal menu bar
+content; the menu and pickers are the same AppKit controls used by the app.
 
 Outputs are 800 x 1040 PNGs:
 
@@ -187,10 +189,11 @@ mode separately on a laptop. This is a local documentation workflow; real
 notification screenshots remain part of the smoke test below, and unattended CI
 capture is outside its scope.
 
-The background PNG is checked in. To regenerate it from its source:
+The light and dark background PNGs are checked in. To regenerate them from source:
 
 ```bash
 rsvg-convert --output=scripts/screenshots/background.png scripts/screenshots/background.svg
+rsvg-convert --output=scripts/screenshots/background-dark.png scripts/screenshots/background-dark.svg
 ```
 
 ## Local smoke test

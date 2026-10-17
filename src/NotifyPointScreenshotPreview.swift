@@ -76,26 +76,38 @@ final class NotifyPointScreenshotPreview {
         backdrop.orderFrontRegardless()
         background = backdrop
 
-        let headerFrame = CGRect(x: frame.minX + 36, y: frame.maxY - 48, width: 328, height: 32)
+        let headerFrame = CGRect(x: frame.minX, y: frame.maxY - 28, width: frame.width, height: 28)
         let headerWindow = makeWindow(frame: headerFrame)
         headerWindow.isOpaque = false
         headerWindow.backgroundColor = .clear
         let glass = NSVisualEffectView(frame: CGRect(origin: .zero, size: headerFrame.size))
-        glass.material = .menu
+        glass.material = .headerView
         glass.blendingMode = .behindWindow
         glass.state = .active
-        glass.wantsLayer = true
-        glass.layer?.cornerRadius = 10
-        glass.layer?.masksToBounds = true
-        glass.autoresizingMask = [.width]
-        let icon = NSButton(frame: CGRect(x: 8, y: 1, width: 40, height: 30))
+        let icon = NSButton(frame: CGRect(x: 48, y: 2, width: 40, height: 24))
         icon.image = button.image
         icon.imagePosition = .imageOnly
-        icon.bezelStyle = .recessed
-        icon.setButtonType(.pushOnPushOff)
-        icon.state = .on
+        icon.isBordered = false
+        icon.wantsLayer = true
+        icon.layer?.cornerRadius = 12
+        icon.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.15).cgColor
         icon.contentTintColor = .labelColor
         glass.addSubview(icon)
+
+        for (symbol, x, width) in [("wifi", 111.0, 20.0), ("switch.2", 150.0, 20.0), ("battery.75percent", 187.0, 27.0)] {
+            let image = NSImageView(frame: CGRect(x: x, y: 6, width: width, height: 16))
+            image.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            image.contentTintColor = .labelColor
+            glass.addSubview(image)
+        }
+        for (text, x, width) in [("75%", 218.0, 32.0), ("Sat 17 Oct  10:09", 264.0, 128.0)] {
+            let label = NSTextField(labelWithString: text)
+            label.frame = CGRect(x: x, y: 5, width: width, height: 18)
+            label.font = .systemFont(ofSize: 13, weight: .medium)
+            label.textColor = .labelColor
+            label.alignment = .right
+            glass.addSubview(label)
+        }
         headerWindow.contentView = glass
         headerWindow.orderFrontRegardless()
         header = headerWindow
@@ -128,11 +140,6 @@ final class NotifyPointScreenshotPreview {
                 return
             }
             let menuFrame = window.frame
-            if self.header?.frame.width != menuFrame.width {
-                self.header?.setFrame(CGRect(x: menuFrame.minX, y: frame.maxY - 48,
-                                            width: menuFrame.width, height: 32), display: true)
-                return
-            }
             guard frame.insetBy(dx: 12, dy: 12).contains(menuFrame) else {
                 self.fail("The native menu does not fit inside the fixed capture canvas.")
                 return
@@ -149,7 +156,7 @@ final class NotifyPointScreenshotPreview {
         RunLoop.main.add(poll, forMode: .common)
         RunLoop.main.add(poll, forMode: .eventTracking)
         DispatchQueue.main.async { [weak self] in
-            menu.popUp(positioning: nil, at: CGPoint(x: frame.minX + 36, y: frame.maxY - 56), in: nil)
+            menu.popUp(positioning: nil, at: CGPoint(x: frame.minX + 36, y: frame.maxY - 36), in: nil)
             if let self, self.timer != nil {
                 self.fail("The menu closed before capture completed. Please leave the mouse and keyboard idle during capture.")
             }
