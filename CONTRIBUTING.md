@@ -29,6 +29,18 @@ Artifacts:
 - `NotifyPoint.app`
 - `.build/`
 
+## Changelog and releases
+
+Record notable user-facing changes under `Unreleased` in [CHANGELOG.md](CHANGELOG.md),
+following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Summarise the
+behaviour and its effect on users under `Added`, `Changed`, `Deprecated`, `Removed`,
+`Fixed`, or `Security`, as applicable.
+
+For a release, update both version fields in `src/Info.plist`, move the unreleased
+entries into a version section dated `YYYY-MM-DD`, and update the comparison links.
+Keep an empty `Unreleased` section for the next changes. Tag the release commit as
+`v<version>` and use that version's changelog entry for the GitHub release notes.
+
 ## Tests
 
 Run the local behavior test suite with:
