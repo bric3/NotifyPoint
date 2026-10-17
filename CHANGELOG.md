@@ -8,6 +8,8 @@ entries summarise the inherited PingPlace releases.
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-17
+
 ### Changed
 
 - Larger, grey menu bar icon with a rounded notification marker that follows the selected position.
@@ -99,7 +101,8 @@ Inherited from [sk0gen's PingPlace fork](https://github.com/sk0gen/PingPlace/rel
 
 - Initial PingPlace release for choosing notification positions from the menu bar.
 
-[Unreleased]: https://github.com/bric3/NotifyPoint/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/bric3/NotifyPoint/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/bric3/NotifyPoint/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/bric3/NotifyPoint/compare/406d8103dc2e3e6bcf504e1a5ae68b72551fd2cb...v1.5.0
 [1.3.2]: https://github.com/sk0gen/PingPlace/releases/tag/v1.3.2
 [1.3.1]: https://github.com/NotWadeGrimridge/PingPlace/releases/tag/v1.3.1
