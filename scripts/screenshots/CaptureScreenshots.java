@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //JAVA 25+
-//JAVA_OPTIONS -Djava.awt.headless=true
+//JAVA_OPTIONS -Djava.awt.headless=true --enable-native-access=ALL-UNNAMED
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.lang.foreign.Arena;
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SymbolLookup;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,6 +24,12 @@ import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
+
+import static java.lang.foreign.MemorySegment.NULL;
+import static java.lang.foreign.ValueLayout.ADDRESS;
+import static java.lang.foreign.ValueLayout.JAVA_DOUBLE;
+import static java.lang.foreign.ValueLayout.JAVA_INT;
+import static java.lang.foreign.ValueLayout.JAVA_LONG;
 
 public class CaptureScreenshots {
   private static final AtomicReference<Session> SESSION = new AtomicReference<>();
@@ -68,7 +79,7 @@ public class CaptureScreenshots {
     Path bundle = temporary.resolve("NotifyPoint.app");
     command(root, Duration.ofMinutes(5), "make", "build", "APP_BUNDLE=" + bundle,
         "BUILD_INFO_SWIFT=" + temporary.resolve("BuildInfo.generated.swift"));
-    if (!confirmCapture(root)) {
+    if (!confirmCapture()) {
       System.out.println("Screenshot capture cancelled. Documentation assets were left unchanged.");
       return;
     }
@@ -137,20 +148,45 @@ public class CaptureScreenshots {
     System.out.println("Updated documentation screenshots in .github/.");
   }
 
-  private static boolean confirmCapture(Path root) throws Exception {
-    Process process = new ProcessBuilder("/usr/bin/osascript", "-e", """
-        display dialog "NotifyPoint will use your mouse for about 20 seconds to capture documentation screenshots.\n\nPlease avoid moving the mouse or switching applications until capture finishes. Your pointer will be restored afterwards.\n\nA slow or failed capture may take up to two minutes to stop." with title "NotifyPoint screenshots" buttons {"Cancel", "Capture screenshots"} default button "Capture screenshots" cancel button "Cancel" with icon caution
-        """).directory(root.toFile()).redirectErrorStream(true).start();
-    synchronized (COMMANDS) { COMMANDS.add(process); }
-    try {
-      if (!process.waitFor(5, TimeUnit.MINUTES)) throw new IOException("Screenshot confirmation timed out.");
-      String result = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-      if (process.exitValue() == 0) return true;
-      if (result.contains("(-128)")) return false;
-      throw new IOException("Cannot show screenshot confirmation: " + result);
-    } finally {
-      process.destroyForcibly();
-      synchronized (COMMANDS) { COMMANDS.remove(process); }
+  private static boolean confirmCapture() throws IOException {
+    try (var arena = Arena.ofConfined()) {
+      var library = SymbolLookup.libraryLookup(
+          "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", arena);
+      var linker = Linker.nativeLinker();
+      var createString = linker.downcallHandle(library.find("CFStringCreateWithCString").orElseThrow(),
+          FunctionDescriptor.of(ADDRESS, ADDRESS, ADDRESS, JAVA_INT));
+      var release = linker.downcallHandle(library.find("CFRelease").orElseThrow(),
+          FunctionDescriptor.ofVoid(ADDRESS));
+      var displayAlert = linker.downcallHandle(library.find("CFUserNotificationDisplayAlert").orElseThrow(),
+          FunctionDescriptor.of(JAVA_INT, JAVA_DOUBLE, JAVA_LONG, ADDRESS, ADDRESS, ADDRESS,
+              ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+      var strings = new ArrayList<MemorySegment>();
+      try {
+        for (String text : List.of("NotifyPoint screenshots", """
+            NotifyPoint will use your mouse for about 20 seconds to capture documentation screenshots.
+
+            Please avoid moving the mouse or switching applications until capture finishes. Your pointer will be restored afterwards.
+
+            A slow or failed capture may take up to two minutes to stop.
+            """, "Capture screenshots", "Cancel")) {
+          // CoreFoundation retains its own UTF-8 copy; release every created CFString before unloading it.
+          var string = (MemorySegment) createString.invokeExact(NULL, arena.allocateFrom(text), 0x08000100);
+          if (string.equals(NULL)) throw new IOException("Cannot allocate native dialog text.");
+          strings.add(string);
+        }
+        var response = arena.allocate(JAVA_LONG);
+        // Caution alert (2), five-minute timeout; only the default button (response 0) permits capture.
+        int error = (int) displayAlert.invokeExact(300.0, 2L, NULL, NULL, NULL,
+            strings.get(0), strings.get(1), strings.get(2), strings.get(3), NULL, response);
+        if (error != 0) throw new IOException("Cannot show native screenshot confirmation: " + error);
+        return (response.get(JAVA_LONG, 0) & 3L) == 0;
+      } finally {
+        for (var string : strings.reversed()) release.invokeExact(string);
+      }
+    } catch (IOException | RuntimeException | Error error) {
+      throw error;
+    } catch (Throwable error) {
+      throw new IOException("Native screenshot confirmation failed.", error);
     }
   }
 
