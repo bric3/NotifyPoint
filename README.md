@@ -52,14 +52,13 @@ display is unavailable, placement falls back to the main display.
 Use `Launch at Login` to enable automatic startup. `Hide Menu Bar Icon` keeps the
 app running; launch NotifyPoint again to restore the icon.
 
-Position chooser and display selection:
+Position chooser, display selection, and a notification placed at the top left:
 
-![NotifyPoint position menu](.github/menu-screenshot.png)
-![NotifyPoint display menu](.github/menu-display-screenshot.png)
-
-Notification placed at the top left:
-
-![Notification moved to top left](.github/moved-notification-to-top-left.png)
+<p>
+  <img src=".github/menu-screenshot.png" alt="NotifyPoint position menu" width="32%">
+  <img src=".github/menu-display-screenshot.png" alt="NotifyPoint display menu" width="32%">
+  <img src=".github/moved-notification-to-top-left.png" alt="Notification moved to top left" width="32%">
+</p>
 
 ## Configuration
 
