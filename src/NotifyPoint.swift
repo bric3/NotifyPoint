@@ -76,7 +76,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate, Noti
     }()
     private lazy var fileDebugLogger: FileDebugLogger? = debugMode ? FileDebugLogger() : nil
     private let launchAgentPlistPath: String = NSHomeDirectory() + "/Library/LaunchAgents/io.github.bric3.notifypoint.plist"
-    private let isPortableMac = MachineModelPolicy.currentModelIdentifier().map { MachineModelPolicy.isPortableMac(modelIdentifier: $0) } ?? false
+    private let isPortableMac = MachineModelPolicy.isPortableMac()
     private weak var displayTargetPickerView: NotificationDisplayTargetPickerView?
     private weak var positionPickerView: NotificationPositionPickerView?
     private var instanceTerminationObserver: NSObjectProtocol?

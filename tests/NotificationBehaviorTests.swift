@@ -320,29 +320,29 @@ private func testMenuPolicyHidesRerunDetectionMenuItemByDefaultInReleaseBuilds()
     )
 }
 
-private func testPortableMacDetectionMatchesMacBookModels() throws {
+private func testPortableMacDetectionRecognisesInternalBattery() throws {
     try assertEqual(
-        MachineModelPolicy.isPortableMac(modelIdentifier: "MacBookPro18,3"),
+        MachineModelPolicy.isPortableMac(powerSourceTypes: ["InternalBattery"]),
         true,
-        "MacBookPro models should be treated as portable"
+        "an internal battery should identify a laptop regardless of its model identifier"
     )
     try assertEqual(
-        MachineModelPolicy.isPortableMac(modelIdentifier: "MacBookAir10,1"),
+        MachineModelPolicy.isPortableMac(powerSourceTypes: ["UPS", "InternalBattery"]),
         true,
-        "MacBookAir models should be treated as portable"
+        "an attached UPS should not hide the laptop's internal battery"
     )
 }
 
-private func testPortableMacDetectionRejectsDesktopModels() throws {
+private func testPortableMacDetectionRejectsDesktopsAndUPS() throws {
     try assertEqual(
-        MachineModelPolicy.isPortableMac(modelIdentifier: "Macmini9,1"),
+        MachineModelPolicy.isPortableMac(powerSourceTypes: []),
         false,
-        "Mac mini should not be treated as portable"
+        "a Mac without an internal battery should not be treated as portable"
     )
     try assertEqual(
-        MachineModelPolicy.isPortableMac(modelIdentifier: "Mac14,2"),
+        MachineModelPolicy.isPortableMac(powerSourceTypes: ["UPS"]),
         false,
-        "desktop-class models should not be treated as portable"
+        "an external UPS should not be treated as an internal laptop battery"
     )
 }
 
@@ -2124,8 +2124,8 @@ struct NotificationBehaviorTestRunner {
             ("menu policy shows rerun-detection item in debug builds", testMenuPolicyShowsRerunDetectionMenuItemWhenDebugBuild),
             ("menu policy shows rerun-detection item when explicitly enabled", testMenuPolicyShowsRerunDetectionMenuItemWhenExplicitlyEnabled),
             ("menu policy hides rerun-detection item by default in release builds", testMenuPolicyHidesRerunDetectionMenuItemByDefaultInReleaseBuilds),
-            ("portable mac detection matches MacBook models", testPortableMacDetectionMatchesMacBookModels),
-            ("portable mac detection rejects desktop models", testPortableMacDetectionRejectsDesktopModels),
+            ("portable mac detection recognises internal battery", testPortableMacDetectionRecognisesInternalBattery),
+            ("portable mac detection rejects desktops and UPS", testPortableMacDetectionRejectsDesktopsAndUPS),
             ("display target policy shows selector only when laptop display is available", testDisplayTargetPolicyShowsSelectorOnlyWhenLaptopDisplayIsAvailable),
             ("display target policy falls back to main display when laptop display is unavailable", testDisplayTargetPolicyFallsBackToMainDisplayWhenLaptopDisplayIsUnavailable),
             ("display target policy restores laptop display when it becomes available", testDisplayTargetPolicyRestoresLaptopDisplayWhenItBecomesAvailable),

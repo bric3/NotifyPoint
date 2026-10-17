@@ -8,6 +8,10 @@ entries summarise the inherited PingPlace releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Restore the Main Display / Laptop Display selector on newer MacBooks with generic `Mac` model identifiers by detecting the internal battery.
+
 ## [1.5.1] - 2026-10-17
 
 ### Changed

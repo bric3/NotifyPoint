@@ -1,25 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-import Darwin
 import Foundation
+import IOKit.ps
 
 enum MachineModelPolicy {
-    static func isPortableMac(modelIdentifier: String) -> Bool {
-        modelIdentifier.hasPrefix("MacBook")
+    static func isPortableMac(powerSourceTypes: [String] = currentPowerSourceTypes()) -> Bool {
+        powerSourceTypes.contains(kIOPSInternalBatteryType)
     }
 
-    static func currentModelIdentifier() -> String? {
-        var size: size_t = 0
-        guard sysctlbyname("hw.model", nil, &size, nil, 0) == 0, size > 0 else {
-            return nil
+    private static func currentPowerSourceTypes() -> [String] {
+        guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
+        else {
+            return []
         }
 
-        var buffer = [CChar](repeating: 0, count: size)
-        guard sysctlbyname("hw.model", &buffer, &size, nil, 0) == 0 else {
-            return nil
+        return sources.compactMap { source in
+            let description = IOPSGetPowerSourceDescription(info, source)?.takeUnretainedValue() as? [String: Any]
+            return description?[kIOPSTypeKey] as? String
         }
-
-        let value = String(cString: buffer)
-        return value.isEmpty ? nil : value
     }
 }
